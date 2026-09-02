@@ -21,8 +21,8 @@ const WINDOWED_SIZE: (f64, f64) = (1280.0, 720.0);
 /// 游戏窗口销毁后通知前端恢复「开始游戏」状态。
 pub const GAME_CLOSED_EVENT: &str = "game-closed";
 
-/// 内置游戏版本表（占位）：版本管理接入在线分发前，仅提供 1.0.0 一项。
-pub const BUILTIN_VERSIONS: [&str; 1] = ["1.0.0"];
+/// 内置游戏版本表（占位）：版本管理接入在线分发前，仅提供 4.0.002 一项。
+pub const BUILTIN_VERSIONS: [&str; 1] = ["4.0.002"];
 
 /// 解析内置版本的托管目录：exe 同目录 `games/<id>/`。
 /// 版本尚未安装（目录不存在或缺少 index.html）时返回 `None`。

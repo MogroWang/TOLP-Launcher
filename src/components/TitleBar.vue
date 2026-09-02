@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
-const win = getCurrentWindow();
+/** 非 Tauri 环境（纯浏览器开发预览）下不创建窗口句柄，避免整页报错 */
+const inTauri = '__TAURI_INTERNALS__' in window;
+const win = inTauri ? getCurrentWindow() : null;
 </script>
 
 <template>
@@ -17,7 +19,7 @@ const win = getCurrentWindow();
         class="titlebar__btn"
         type="button"
         aria-label="最小化"
-        @click="win.minimize()"
+        @click="win?.minimize()"
       >
         <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
           <path d="M2.5 6h7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
@@ -27,7 +29,7 @@ const win = getCurrentWindow();
         class="titlebar__btn titlebar__btn--close"
         type="button"
         aria-label="关闭"
-        @click="win.close()"
+        @click="win?.close()"
       >
         <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
           <path

@@ -21,15 +21,15 @@ export interface LaunchResult {
   fullscreen: boolean;
 }
 
-/** 内置游戏版本列表（占位）：版本管理接入在线分发前仅提供 1.0.0 */
-export const BUILTIN_GAME_VERSIONS = [{ id: '1.0.0', label: '光点之旅 1.0.0' }] as const;
+/** 内置游戏版本列表（占位）：版本管理接入在线分发前仅提供 4.0.002 DEV */
+export const BUILTIN_GAME_VERSIONS = [{ id: '4.0.002', label: '光点之旅 4.0.002 DEV' }] as const;
 
 /** 非 Tauri 环境（纯浏览器开发预览）下安全降级，避免整页报错 */
 const inTauri = '__TAURI_INTERNALS__' in window;
 
 export function getSettings(): Promise<Settings> {
   if (!inTauri) {
-    return Promise.resolve({ launchMode: 'windowed', gameDir: null, versionId: '1.0.0' });
+    return Promise.resolve({ launchMode: 'windowed', gameDir: null, versionId: '4.0.002' });
   }
   return invoke<Settings>('get_settings');
 }

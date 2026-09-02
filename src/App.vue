@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { getVersion } from '@tauri-apps/api/app';
 import {
+  BUILTIN_GAME_VERSIONS,
   getGameStatus,
   getSettings,
   isGameRunning,
@@ -11,15 +12,17 @@ import {
   type GameStatus,
   type Settings,
 } from './lib/tauri';
+import type { PageId } from './components/SideNav.vue';
 import TitleBar from './components/TitleBar.vue';
-import HeroSection from './components/HeroSection.vue';
-import SettingsSheet from './components/SettingsSheet.vue';
+import SideNav from './components/SideNav.vue';
+import QuickLaunch from './components/QuickLaunch.vue';
+import VersionManager from './components/VersionManager.vue';
+import LauncherSettings from './components/LauncherSettings.vue';
 
-const settings = ref<Settings>({ launchMode: 'fullscreen', gameDir: null, versionId: '1.0.0' });
+const settings = ref<Settings>({ launchMode: 'fullscreen', gameDir: null, versionId: BUILTIN_GAME_VERSIONS[0].id });
 const status = ref<GameStatus>({ found: false, dir: null, reason: null });
 const version = ref('');
-/** 递增计数作为“打开抽屉”的请求信号，抽屉内部自行管理开关 */
-const settingsRequest = ref(0);
+const page = ref<PageId>('launch');
 const launching = ref(false);
 const launchError = ref<string | null>(null);
 /** 游戏窗口是否正在运行（启动成功置位，窗口关闭事件复位） */
@@ -28,7 +31,16 @@ let unlistenGameClosed: (() => void) | null = null;
 
 onMounted(async () => {
   const [loadedSettings, loadedStatus] = await Promise.all([getSettings(), getGameStatus()]);
-  settings.value = loadedSettings;
+  // 旧版本设置的版本 id 不在当前版本表时归一化到最新内置版本
+  const validVersion =
+    loadedSettings.versionId !== null &&
+    BUILTIN_GAME_VERSIONS.some((v) => v.id === loadedSettings.versionId);
+  settings.value = validVersion
+    ? loadedSettings
+    : { ...loadedSettings, versionId: loadedSettings.versionId === null ? null : BUILTIN_GAME_VERSIONS[0].id };
+  if (settings.value !== loadedSettings) {
+    void saveSettings(settings.value);
+  }
   status.value = loadedStatus;
   version.value = await getVersion().catch(() => '');
   // 页面可能在游戏运行中被刷新，挂载时向后端同步一次真实状态
@@ -71,30 +83,44 @@ async function onLaunch(): Promise<void> {
 <template>
   <div class="app">
     <TitleBar />
-    <main class="app__stage">
-      <div class="app__shift">
-        <HeroSection
-          :status="status"
-          :launching="launching"
-          :running="running"
-          :error="launchError"
-          @launch="onLaunch"
-          @request-settings="settingsRequest++"
-        />
-      </div>
-      <footer class="app__footer">
-        <span>MOGROWANG STUDIO</span>
-        <span>
-          光点之旅 TOUR OF LIGHT POINT<template v-if="version"> · V{{ version }}</template>
-        </span>
-      </footer>
-      <SettingsSheet
-        :open-request="settingsRequest"
-        :settings="settings"
-        :status="status"
-        @change="applySettings"
-      />
-    </main>
+    <div class="app__body">
+      <SideNav :page="page" @update="page = $event" />
+      <main class="app__main">
+        <div class="app__page">
+          <Transition name="page" mode="out-in">
+            <QuickLaunch
+              v-if="page === 'launch'"
+              :settings="settings"
+              :status="status"
+              :launching="launching"
+              :running="running"
+              :error="launchError"
+              @launch="onLaunch"
+              @change="applySettings"
+            />
+            <VersionManager
+              v-else-if="page === 'versions'"
+              :settings="settings"
+              :status="status"
+              @select="(id) => applySettings({ ...settings, versionId: id })"
+            />
+            <LauncherSettings
+              v-else
+              :settings="settings"
+              :status="status"
+              :version="version"
+              @change="applySettings"
+            />
+          </Transition>
+        </div>
+        <footer class="app__footer">
+          <span>MOGROWANG STUDIO</span>
+          <span>
+            光点之旅 TOUR OF LIGHT POINT<template v-if="version"> · V{{ version }}</template>
+          </span>
+        </footer>
+      </main>
+    </div>
   </div>
 </template>
 
@@ -105,8 +131,20 @@ async function onLaunch(): Promise<void> {
   flex-direction: column;
 }
 
-.app__stage {
-  position: relative;
+.app__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.app__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app__page {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -114,29 +152,38 @@ async function onLaunch(): Promise<void> {
   overflow: hidden;
 }
 
-/* 抽屉打开时主页内容平移避让（位移量与抽屉宽度精确互补）；
-   开合状态由 CSS :has() 直接从抽屉元素读取，不依赖跨组件状态 */
-.app__shift {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+/* 页面切换：短促淡入 + 轻微上浮，避免方向性滑动带来的跳跃感 */
+.page-enter-active {
+  transition: opacity 0.18s ease-out, transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.app__stage:has(.drawer[data-open='true']) .app__shift {
-  transform: translateX(calc(-1 * min(400px, 88%) / 2));
+.page-leave-active {
+  transition: opacity 0.12s ease-in;
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.page-leave-to {
+  opacity: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app__shift {
-    transition: none;
+  .page-enter-active,
+  .page-leave-active {
+    transition: opacity 0.15s ease;
+  }
+
+  .page-enter-from {
+    transform: none;
   }
 }
 
 .app__footer {
   flex: none;
-  height: 44px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;

@@ -3509,7 +3509,7 @@ dependencies = [
 
 [[package]]
 name = "tolp-launcher"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "percent-encoding",
  "serde",
