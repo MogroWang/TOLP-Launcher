@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>TOLP 启动器 · 本地服务测试页</title>
+    <style>
+      body {
+        margin: 0;
+        height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #000;
+        color: #fff;
+        font-family: 'Microsoft YaHei UI', system-ui, sans-serif;
+        text-align: center;
+      }
+      .orb {
+        width: 96px;
+        height: 96px;
+        margin: 0 auto 28px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 36% 30%, #efd9fc 0%, #cb8df4 38%, #a855f7 70%, #8a3ed2 100%);
+        box-shadow: 0 0 40px rgba(168, 85, 247, 0.55);
+        animation: pulse 2.4s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        50% {
+          transform: scale(1.05);
+        }
+      }
+      h1 {
+        font-size: 20px;
+        font-weight: 500;
+        letter-spacing: 0.1em;
+      }
+      p {
+        margin-top: 10px;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.55);
+        line-height: 1.8;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="orb"></div>
+      <h1>本地游戏服务正常</h1>
+      <p>
+        看到此页面说明：静态服务器、游戏窗口与启动流程均可正常工作。<br />
+        把 GDevelop 导出的游戏文件放入 game 文件夹即可开始游玩。
+      </p>
+    </main>
+  </body>
+</html>

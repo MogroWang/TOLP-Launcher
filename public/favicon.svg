@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="orb" cx="0.36" cy="0.3" r="0.85">
+      <stop offset="0" stop-color="#efd9fc"/>
+      <stop offset="0.35" stop-color="#cb8df4"/>
+      <stop offset="0.72" stop-color="#a855f7"/>
+      <stop offset="1" stop-color="#7f35c9"/>
+    </radialGradient>
+    <radialGradient id="sheen" cx="0.36" cy="0.28" r="0.5">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="256" cy="256" r="236" fill="url(#orb)"/>
+  <circle cx="256" cy="256" r="236" fill="url(#sheen)"/>
+  <path d="M192 196 Q192 180 207 188 L332 247 Q346 256 332 265 L207 324 Q192 332 192 316 Z" fill="#fff"/>
+</svg>

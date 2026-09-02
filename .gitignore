@@ -1,0 +1,17 @@
+# 前端
+node_modules/
+dist/
+
+# Tauri / Rust
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# 游戏本体（由使用者放入 GDevelop 网页版导出，不入库）
+game/*
+!game/README.txt
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+*.log
+*.local
