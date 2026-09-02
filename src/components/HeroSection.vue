@@ -6,11 +6,12 @@ defineProps<{
   status: GameStatus;
   launching: boolean;
   error: string | null;
+  settingsOpen: boolean;
 }>();
 
 defineEmits<{
   launch: [];
-  fix: [];
+  toggleSettings: [];
 }>();
 </script>
 
@@ -21,23 +22,52 @@ defineEmits<{
       <p class="hero__sub">TOUR OF LIGHT POINT</p>
     </header>
 
-    <OrbButton
-      class="hero__play"
-      :size="148"
-      tone="purple"
-      breathing
-      :label="status.found ? '开始游戏' : '未找到游戏文件'"
-      :loading="launching"
-      :disabled="!status.found"
-      @click="$emit('launch')"
-    >
-      <svg viewBox="0 0 48 48" aria-hidden="true">
-        <path
-          d="M17 14.8 Q17 11.4 20 13 L39 23.2 Q42 24 39 24.8 L20 35 Q17 36.6 17 33.2 Z"
-          fill="#fff"
-        />
-      </svg>
-    </OrbButton>
+    <!-- 构图取自游戏菜单设计稿：次级球伴随主球、底部对齐 -->
+    <div class="hero__orbs">
+      <OrbButton
+        class="hero__settings"
+        :size="56"
+        tone="white"
+        label="启动设置"
+        :active="settingsOpen"
+        :aria-expanded="settingsOpen"
+        @click="$emit('toggleSettings')"
+      >
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <g stroke="#fff" stroke-width="2" stroke-linecap="round">
+            <path d="M4 6.5h8.8" />
+            <path d="M18.2 6.5H20" />
+            <path d="M4 12h2.6" />
+            <path d="M11.8 12H20" />
+            <path d="M4 17.5h6.8" />
+            <path d="M16 17.5h4" />
+          </g>
+          <g fill="#fff">
+            <circle cx="15.4" cy="6.5" r="2.2" />
+            <circle cx="9.2" cy="12" r="2.2" />
+            <circle cx="13.4" cy="17.5" r="2.2" />
+          </g>
+        </svg>
+      </OrbButton>
+
+      <OrbButton
+        class="hero__play"
+        :size="148"
+        tone="purple"
+        breathing
+        :label="status.found ? '开始游戏' : '未找到游戏文件'"
+        :loading="launching"
+        :disabled="!status.found"
+        @click="$emit('launch')"
+      >
+        <svg viewBox="0 0 48 48" aria-hidden="true">
+          <path
+            d="M17 14.8 Q17 11.4 20 13 L39 23.2 Q42 24 39 24.8 L20 35 Q17 36.6 17 33.2 Z"
+            fill="#fff"
+          />
+        </svg>
+      </OrbButton>
+    </div>
 
     <div class="hero__meta" aria-live="polite">
       <template v-if="launching">
@@ -51,7 +81,7 @@ defineEmits<{
       <template v-else>
         <span class="hero__dot hero__dot--missing" aria-hidden="true"></span>
         <span>{{ status.reason ?? '尚未找到游戏文件' }}</span>
-        <button class="hero__fix" type="button" @click="$emit('fix')">去选择游戏目录</button>
+        <button class="hero__fix" type="button" @click="$emit('toggleSettings')">去选择游戏目录</button>
       </template>
     </div>
 
@@ -61,21 +91,23 @@ defineEmits<{
 
 <style scoped>
 .hero {
-  position: absolute;
-  inset: 0;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding-bottom: 5vh;
+  gap: clamp(26px, 5.5vh, 54px);
+  padding: 16px 24px;
+  position: relative;
 }
 
 /* 光点的环境光，让黑色不再空洞 —— 与游戏菜单一致 */
 .hero::before {
   content: '';
   position: absolute;
-  width: 660px;
-  height: 660px;
+  width: min(72vmin, 700px);
+  height: min(72vmin, 700px);
   border-radius: 50%;
   background: radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 62%);
   top: 50%;
@@ -85,12 +117,12 @@ defineEmits<{
 }
 
 .hero__brand {
+  position: relative;
   text-align: center;
-  margin-bottom: 54px;
 }
 
 .hero__brand h1 {
-  font-size: 40px;
+  font-size: clamp(30px, 4.6vmin, 42px);
   font-weight: 500;
   letter-spacing: 0.12em;
   text-indent: 0.12em;
@@ -98,23 +130,34 @@ defineEmits<{
 }
 
 .hero__sub {
-  margin-top: 12px;
+  margin-top: clamp(8px, 1.6vh, 14px);
   font-size: 11px;
   letter-spacing: 0.42em;
   text-indent: 0.42em;
   color: var(--ink-4);
 }
 
-.hero__play {
+.hero__orbs {
   position: relative;
-  margin-bottom: 28px;
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(40px, 6vmin, 64px);
+}
+
+.hero__settings {
+  --orb-label-size: 12px;
+}
+
+.hero__play {
+  margin-bottom: 34px;
 }
 
 .hero__meta {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  max-width: 72%;
+  max-width: min(72%, 640px);
   font-size: 12.5px;
   letter-spacing: 0.04em;
   color: var(--ink-2);
@@ -162,13 +205,13 @@ defineEmits<{
 }
 
 .hero__error {
-  position: absolute;
-  bottom: 13vh;
-  max-width: 72%;
+  position: relative;
+  max-width: min(72%, 640px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12.5px;
   color: var(--danger);
+  margin-top: -14px;
 }
 </style>

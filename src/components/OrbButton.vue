@@ -7,6 +7,8 @@ withDefaults(
     breathing?: boolean;
     loading?: boolean;
     disabled?: boolean;
+    /** 展开态（如设置抽屉打开时的开关球） */
+    active?: boolean;
   }>(),
   {
     size: 64,
@@ -15,6 +17,7 @@ withDefaults(
     breathing: false,
     loading: false,
     disabled: false,
+    active: false,
   },
 );
 </script>
@@ -22,7 +25,7 @@ withDefaults(
 <template>
   <div
     class="orb"
-    :class="[`orb--${tone}`, { 'orb--breathing': breathing, 'orb--loading': loading, 'orb--disabled': disabled }]"
+    :class="[`orb--${tone}`, { 'orb--breathing': breathing, 'orb--loading': loading, 'orb--disabled': disabled, 'orb--active': active }]"
     :style="{ '--orb-size': `${size}px` }"
   >
     <button
@@ -31,6 +34,7 @@ withDefaults(
       :disabled="disabled || loading"
       :aria-label="label || undefined"
       :aria-busy="loading || undefined"
+      :aria-expanded="active"
     >
       <span class="orb__body" aria-hidden="true">
         <span class="orb__halo"></span>
@@ -160,8 +164,21 @@ withDefaults(
   opacity: 0.45;
 }
 
+/* 展开态：开关球泛起紫色光环，与抽屉状态呼应 */
+.orb--active .orb__body {
+  box-shadow:
+    0 0 26px rgba(168, 85, 247, 0.55),
+    0 0 72px rgba(168, 85, 247, 0.28),
+    inset 0 -8px 18px rgba(0, 0, 0, 0.18),
+    inset 0 6px 12px rgba(255, 255, 255, 0.9);
+}
+
+.orb--active .orb__button {
+  transform: scale(1.03);
+}
+
 .orb__label {
-  font-size: 14px;
+  font-size: var(--orb-label-size, 14px);
   letter-spacing: 0.1em;
   color: var(--ink-2);
 }

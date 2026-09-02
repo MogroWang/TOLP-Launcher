@@ -12,7 +12,6 @@ import {
 } from './lib/tauri';
 import TitleBar from './components/TitleBar.vue';
 import HeroSection from './components/HeroSection.vue';
-import OrbButton from './components/OrbButton.vue';
 import SettingsSheet from './components/SettingsSheet.vue';
 import GameStage from './components/GameStage.vue';
 
@@ -45,6 +44,7 @@ async function onLaunch(): Promise<void> {
   if (launching.value || gameUrl.value) return;
   launchError.value = null;
   launching.value = true;
+  sheetOpen.value = false;
   try {
     const result = await launchGame();
     const win = getCurrentWindow();
@@ -67,51 +67,31 @@ async function onExitGame(): Promise<void> {
   <div class="app">
     <TitleBar v-show="!gameUrl" />
     <main v-show="!gameUrl" class="app__stage">
-      <HeroSection
-        :status="status"
-        :launching="launching"
-        :error="launchError"
-        @launch="onLaunch"
-        @fix="sheetOpen = true"
-      />
-      <OrbButton
-        class="app__settings-orb"
-        :size="52"
-        tone="white"
-        label="启动设置"
-        @click="sheetOpen = true"
-      >
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <g stroke="#fff" stroke-width="2" stroke-linecap="round">
-            <path d="M4 6.5h8.8" />
-            <path d="M18.2 6.5H20" />
-            <path d="M4 12h2.6" />
-            <path d="M11.8 12H20" />
-            <path d="M4 17.5h6.8" />
-            <path d="M16 17.5h4" />
-          </g>
-          <g fill="#fff">
-            <circle cx="15.4" cy="6.5" r="2.2" />
-            <circle cx="9.2" cy="12" r="2.2" />
-            <circle cx="13.4" cy="17.5" r="2.2" />
-          </g>
-        </svg>
-      </OrbButton>
+      <div class="app__shift" :class="{ 'is-shifted': sheetOpen }">
+        <HeroSection
+          :status="status"
+          :launching="launching"
+          :error="launchError"
+          :settings-open="sheetOpen"
+          @launch="onLaunch"
+          @toggle-settings="sheetOpen = !sheetOpen"
+        />
+      </div>
       <footer class="app__footer">
         <span>MOGROWANG STUDIO</span>
         <span>
           光点之旅 TOUR OF LIGHT POINT<template v-if="version"> · V{{ version }}</template>
         </span>
       </footer>
+      <SettingsSheet
+        :open="sheetOpen"
+        :settings="settings"
+        :status="status"
+        @update:open="sheetOpen = $event"
+        @change="applySettings"
+      />
     </main>
     <GameStage v-if="gameUrl" :url="gameUrl" @exit="onExitGame" />
-    <SettingsSheet
-      :open="sheetOpen"
-      :settings="settings"
-      :status="status"
-      @update:open="sheetOpen = $event"
-      @change="applySettings"
-    />
   </div>
 </template>
 
@@ -126,19 +106,32 @@ async function onExitGame(): Promise<void> {
   position: relative;
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.app__settings-orb {
-  position: absolute;
-  right: 30px;
-  bottom: 52px;
+/* 抽屉打开时主页内容平移避让，位移量与抽屉宽度精确互补 */
+.app__shift {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.app__shift.is-shifted {
+  transform: translateX(calc(-1 * min(400px, 88%) / 2));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app__shift {
+    transition: none;
+  }
 }
 
 .app__footer {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  flex: none;
   height: 44px;
   display: flex;
   align-items: center;
@@ -147,7 +140,6 @@ async function onExitGame(): Promise<void> {
   font-size: 10px;
   letter-spacing: 0.22em;
   color: var(--ink-4);
-  pointer-events: none;
+  user-select: none;
 }
 </style>
-

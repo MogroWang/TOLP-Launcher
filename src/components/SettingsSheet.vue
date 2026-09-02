@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { open } from '@tauri-apps/plugin-dialog';
 import type { GameStatus, LaunchMode, Settings } from '../lib/tauri';
 
@@ -18,6 +18,8 @@ const modes: Array<{ value: LaunchMode; label: string }> = [
   { value: 'fullscreen', label: '全屏启动' },
   { value: 'windowed', label: '窗口化启动' },
 ];
+
+const drawerEl = ref<HTMLElement | null>(null);
 
 const thumbShift = computed(() => {
   const index = modes.findIndex((m) => m.value === props.settings.launchMode);
@@ -54,6 +56,9 @@ watch(
   (open) => {
     if (open) {
       window.addEventListener('keydown', onKeydown);
+      void nextTick(() => {
+        drawerEl.value?.querySelector<HTMLButtonElement>('.seg__item')?.focus();
+      });
     } else {
       window.removeEventListener('keydown', onKeydown);
     }
@@ -64,113 +69,119 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 </script>
 
 <template>
-  <Transition name="sheet">
-    <div v-if="open" class="sheet-root">
-      <div class="sheet__scrim" @click="emit('update:open', false)"></div>
-      <div class="sheet" role="dialog" aria-modal="true" aria-label="启动设置">
-        <header class="sheet__head">
-          <h2>启动设置</h2>
-          <button class="sheet__close" type="button" aria-label="关闭设置" @click="emit('update:open', false)">
-            <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
-              <path
-                d="M3.4 3.4l7.2 7.2M10.6 3.4l-7.2 7.2"
-                stroke="currentColor"
-                stroke-width="1.4"
-                stroke-linecap="round"
-              />
-            </svg>
-          </button>
-        </header>
+  <aside v-show="open" ref="drawerEl" class="drawer" role="dialog" aria-label="启动设置">
+    <header class="drawer__head">
+      <h2>启动设置</h2>
+      <button class="drawer__close" type="button" aria-label="关闭设置" @click="emit('update:open', false)">
+        <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
+          <path
+            d="M3.4 3.4l7.2 7.2M10.6 3.4l-7.2 7.2"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+    </header>
 
-        <section class="sheet__section">
-          <h3 class="sheet__label">启动方式</h3>
-          <div class="seg" role="radiogroup" aria-label="启动方式">
-            <span class="seg__thumb" :style="{ transform: `translateX(${thumbShift * 100}%)` }" aria-hidden="true"></span>
-            <button
-              v-for="m in modes"
-              :key="m.value"
-              class="seg__item"
-              :class="{ 'is-active': settings.launchMode === m.value }"
-              type="button"
-              role="radio"
-              :aria-checked="settings.launchMode === m.value"
-              @click="setMode(m.value)"
-            >
-              {{ m.label }}
-            </button>
-          </div>
-        </section>
-
-        <section class="sheet__section">
-          <div class="sheet__label-row">
-            <h3 class="sheet__label">游戏目录</h3>
-            <span class="sheet__chip" :class="status.found ? 'is-ok' : 'is-missing'">
-              <span class="sheet__chip-dot" aria-hidden="true"></span>
-              {{ status.found ? '已就绪' : '未找到游戏' }}
-            </span>
-          </div>
-          <div class="dirbox">
-            <span class="dirbox__path" :title="status.dir ?? ''">
-              {{ status.dir ?? '默认使用启动器同目录的 game 文件夹' }}
-            </span>
-            <div class="dirbox__actions">
-              <button class="btn" type="button" @click="chooseDir">选择…</button>
-              <button v-if="settings.gameDir" class="btn btn--ghost" type="button" @click="resetDir">
-                恢复默认
-              </button>
-            </div>
-          </div>
-          <p class="sheet__hint">
-            把 GDevelop 导出的网页版游戏（含 index.html 的文件夹）放入启动器同目录的
-            game 文件夹，或在此指定其他目录。设置会立即保存。
-          </p>
-        </section>
+    <section class="drawer__section">
+      <h3 class="drawer__label">启动方式</h3>
+      <div class="seg" role="radiogroup" aria-label="启动方式">
+        <span class="seg__thumb" :style="{ transform: `translateX(${thumbShift * 100}%)` }" aria-hidden="true"></span>
+        <button
+          v-for="m in modes"
+          :key="m.value"
+          class="seg__item"
+          :class="{ 'is-active': settings.launchMode === m.value }"
+          type="button"
+          role="radio"
+          :aria-checked="settings.launchMode === m.value"
+          @click="setMode(m.value)"
+        >
+          {{ m.label }}
+        </button>
       </div>
-    </div>
-  </Transition>
+    </section>
+
+    <section class="drawer__section">
+      <div class="drawer__label-row">
+        <h3 class="drawer__label">游戏目录</h3>
+        <span class="drawer__chip" :class="status.found ? 'is-ok' : 'is-missing'">
+          <span class="drawer__chip-dot" aria-hidden="true"></span>
+          {{ status.found ? '已就绪' : '未找到游戏' }}
+        </span>
+      </div>
+      <div class="dirbox">
+        <span class="dirbox__path" :title="status.dir ?? ''">
+          {{ status.dir ?? '默认使用启动器同目录的 game 文件夹' }}
+        </span>
+        <div class="dirbox__actions">
+          <button class="btn" type="button" @click="chooseDir">选择…</button>
+          <button v-if="settings.gameDir" class="btn btn--ghost" type="button" @click="resetDir">
+            恢复默认
+          </button>
+        </div>
+      </div>
+      <p class="drawer__hint">
+        把 GDevelop 导出的网页版游戏（含 index.html 的文件夹）放入启动器同目录的
+        game 文件夹，或在此指定其他目录。设置会立即保存。
+      </p>
+    </section>
+  </aside>
 </template>
 
 <style scoped>
-.sheet-root {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: grid;
-  place-items: end center;
-}
-
-.sheet__scrim {
+.drawer {
   position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-}
-
-.sheet {
-  position: relative;
-  width: min(560px, calc(100vw - 48px));
-  margin-bottom: 22px;
-  padding: 22px 26px 26px;
-  border-radius: 22px;
-  background: rgba(22, 19, 28, 0.78);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(400px, 88%);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 24px 26px;
+  overflow-y: auto;
+  background: rgba(22, 19, 28, 0.82);
   backdrop-filter: blur(28px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  border-left: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 20px 0 0 20px;
+  box-shadow: -28px 0 80px rgba(0, 0, 0, 0.55);
+  z-index: 40;
+  /* 显示时从右滑入（display 切换会自动重播动画）；隐藏为瞬时，可靠性优先 */
+  animation: drawer-in 0.32s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.sheet__head {
+@keyframes drawer-in {
+  from {
+    transform: translateX(36px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer {
+    animation: none;
+  }
+}
+
+.drawer__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
 }
 
-.sheet__head h2 {
+.drawer__head h2 {
   font-size: 17px;
   font-weight: 500;
   letter-spacing: 0.06em;
 }
 
-.sheet__close {
+.drawer__close {
   width: 30px;
   height: 30px;
   border-radius: 50%;
@@ -181,20 +192,21 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   transition: background-color 0.15s ease, transform 0.1s ease;
 }
 
-.sheet__close:hover {
+.drawer__close:hover {
   background: rgba(255, 255, 255, 0.16);
   color: #fff;
 }
 
-.sheet__close:active {
+.drawer__close:active {
   transform: scale(0.94);
 }
 
-.sheet__section + .sheet__section {
-  margin-top: 22px;
+.drawer__section {
+  display: flex;
+  flex-direction: column;
 }
 
-.sheet__label {
+.drawer__label {
   font-size: 11.5px;
   font-weight: 400;
   letter-spacing: 0.18em;
@@ -202,13 +214,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   margin-bottom: 10px;
 }
 
-.sheet__label-row {
+.drawer__label-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.sheet__chip {
+.drawer__chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -218,19 +230,19 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   letter-spacing: 0.06em;
 }
 
-.sheet__chip-dot {
+.drawer__chip-dot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
   background: currentColor;
 }
 
-.sheet__chip.is-ok {
+.drawer__chip.is-ok {
   color: #86efac;
   background: rgba(74, 222, 128, 0.1);
 }
 
-.sheet__chip.is-missing {
+.drawer__chip.is-missing {
   color: #fda4af;
   background: rgba(248, 113, 113, 0.1);
 }
@@ -328,34 +340,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   background: rgba(255, 255, 255, 0.08);
 }
 
-.sheet__hint {
+.drawer__hint {
   margin-top: 12px;
   font-size: 12px;
   line-height: 1.75;
   color: rgba(255, 255, 255, 0.38);
-}
-
-.sheet-enter-active .sheet {
-  transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.34s ease;
-}
-
-.sheet-leave-active .sheet {
-  transition: transform 0.22s cubic-bezier(0.4, 0, 1, 1), opacity 0.22s ease;
-}
-
-.sheet-enter-from .sheet,
-.sheet-leave-to .sheet {
-  transform: translateY(26px) scale(0.97);
-  opacity: 0;
-}
-
-.sheet-enter-active .sheet__scrim,
-.sheet-leave-active .sheet__scrim {
-  transition: opacity 0.28s ease;
-}
-
-.sheet-enter-from .sheet__scrim,
-.sheet-leave-to .sheet__scrim {
-  opacity: 0;
 }
 </style>
