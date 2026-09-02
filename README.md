@@ -1,19 +1,23 @@
 # TOLP Launcher · 光点之旅启动器
 
-《光点之旅（Tour of Light Point）》的桌面启动器：启动本地目录下的网页版游戏，并提供启动方式（全屏 / 窗口化）等设置。
+《光点之旅（Tour of Light Point）》的桌面启动器：启动本地目录下的网页版游戏，并提供游戏版本管理、启动方式（全屏 / 窗口化）等设置。
 
 技术栈：**Vue 3 + TypeScript + Vite**（前端）/ **Tauri 2 + Rust**（后端）。
 
 ## 工作方式
 
 - 启动器内嵌一个仅监听 `127.0.0.1` 随机端口的静态文件服务器（Rust / tiny_http）来提供游戏文件——GDevelop 网页版导出必须经 HTTP 访问。
-- 点击「开始游戏」会按启动设置**新开一个独立游戏窗口**：全屏（无边框）或 1280×720 窗口；关闭游戏窗口即退出游戏，启动器不受影响。重复点击会复用已有游戏窗口。
+- 点击「开始游戏」会按启动设置**新开一个独立游戏窗口**：全屏（无边框）或 1280×720 窗口；关闭游戏窗口即退出游戏，启动器不受影响。重复点击会复用已有游戏窗口（运行中点击可召回窗口）。
+- 主界面实时显示游戏运行状态：游戏窗口启动后显示「正在运行」，游戏关闭后自动恢复「开始游戏」。
 - 游戏地址使用 `localhost` 而非回环 IP，避免被系统代理规则拦截；游戏窗口不拥有任何 IPC 权限，与启动器相互隔离。
 - 启动命令为 async command：窗口创建需要与主线程事件循环交互，同步 command 会与其互锁导致应用挂起。
 
 ## 游戏文件放置
 
-启动器按以下顺序查找游戏目录：
+启动设置中可先选择「游戏版本」：
+
+- **内置版本**（当前为占位符 `1.0.0`）：优先使用启动器 exe 同目录 `games/<版本>/` 托管目录，版本尚未提供下载前回落到同目录 `game/` 文件夹；
+- **自定义目录**：按以下顺序查找游戏目录：
 
 1. 「启动设置 → 游戏目录」中指定的目录；
 2. 启动器 exe 同目录的 `game/` 文件夹（便携版默认约定）；
@@ -44,7 +48,13 @@ npm run tauri -- build --no-bundle   # 构建便携版裸 exe
 
 ## CI
 
-`.github/workflows/build-windows.yml`：在 `windows-latest` 上构建 **Windows x64 便携版**（裸 exe + 说明文件打包为 zip，不打安装包）。触发方式：推送 `v*` 标签（会同时创建 GitHub Release 并附上压缩包）或在 Actions 页面手动触发（workflow_dispatch）。
+`.github/workflows/ci.yml`：在 `windows-latest` 上构建 **Windows x64 便携版**（裸 exe + 说明文件打包为 zip，不打安装包）。触发方式：
+
+- 推送到 `main` 分支或提交 Pull Request：自动构建并上传构建产物（验证用）；
+- 推送 `v*` 标签：构建并创建 GitHub Release，附上便携版压缩包；
+- Actions 页面手动触发（workflow_dispatch）。
+
+发布流程：修改版本号（`package.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml`）→ 更新 `CHANGELOG.md` → 提交并打 `v0.x.0` 标签推送，CI 自动完成构建与发布。
 
 ## 目录结构
 

@@ -1,42 +1,82 @@
-//! 游戏目录解析与游戏启动（独立游戏窗口）。
+//! 游戏目录解析、版本管理与游戏启动（独立游戏窗口）。
 
 use serde::Serialize;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
 use crate::game_server::GameServer;
 use crate::settings::{self, LaunchMode, Settings};
 
 pub struct LauncherState {
     pub server: Option<GameServer>,
+    /// 游戏窗口是否正在运行（前端据此在「开始游戏 / 正在运行」间切换）
+    pub game_running: bool,
 }
 
 const GAME_WINDOW_LABEL: &str = "game";
 const WINDOWED_SIZE: (f64, f64) = (1280.0, 720.0);
 
+/// 游戏窗口销毁后通知前端恢复「开始游戏」状态。
+pub const GAME_CLOSED_EVENT: &str = "game-closed";
+
+/// 内置游戏版本表（占位）：版本管理接入在线分发前，仅提供 1.0.0 一项。
+pub const BUILTIN_VERSIONS: [&str; 1] = ["1.0.0"];
+
+/// 解析内置版本的托管目录：exe 同目录 `games/<id>/`。
+/// 版本尚未安装（目录不存在或缺少 index.html）时返回 `None`。
+fn builtin_version_dir(version_id: &str) -> Option<PathBuf> {
+    if !BUILTIN_VERSIONS.contains(&version_id) {
+        return None;
+    }
+    let managed = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|parent| parent.join("games").join(version_id)))?;
+    if managed.join("index.html").is_file() {
+        return Some(managed);
+    }
+    None
+}
+
 /// 解析当前生效的游戏目录：
-/// 1. 设置中指定的目录；
-/// 2. 可执行文件同目录的 `game` 文件夹（便携版默认约定）；
-/// 3. 开发构建下回退到工程根目录的 `game`（便于 `tauri dev` 调试）。
+/// 1. 选择内置版本时：优先使用 `games/<版本>/` 托管目录；尚未提供版本下载前
+///    回落到可执行文件同目录的 `game` 文件夹（占位约定）；
+/// 2. 自定义启动（未选版本）时：设置中指定的目录；
+/// 3. 可执行文件同目录的 `game` 文件夹（便携版默认约定）；
+/// 4. 开发构建下回退到工程根目录的 `game`（便于 `tauri dev` 调试）。
 pub fn resolve_game_dir(settings: &Settings) -> Option<PathBuf> {
+    let default_game = || {
+        std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(|parent| parent.join("game")))
+    };
+    #[cfg(debug_assertions)]
+    let dev_game = || {
+        let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("game");
+        if dev.join("index.html").is_file() {
+            Some(dev)
+        } else {
+            None
+        }
+    };
+    #[cfg(not(debug_assertions))]
+    let dev_game = || None;
+
+    if let Some(version_id) = settings.version_id.as_deref() {
+        if BUILTIN_VERSIONS.contains(&version_id) {
+            return builtin_version_dir(version_id)
+                .or_else(default_game)
+                .or_else(dev_game);
+        }
+    }
+
     if let Some(dir) = settings.game_dir.as_deref() {
         if !dir.trim().is_empty() {
             return Some(PathBuf::from(dir));
         }
     }
-    let exe_game = std::env::current_exe()
-        .ok()
-        .and_then(|exe| exe.parent().map(|parent| parent.join("game")));
-    #[cfg(debug_assertions)]
-    {
-        let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("game");
-        if dev.join("index.html").is_file() {
-            return Some(dev);
-        }
-    }
-    exe_game
+    default_game().or_else(dev_game)
 }
 
 #[derive(Serialize)]
@@ -72,6 +112,11 @@ pub fn game_status() -> GameStatus {
             reason: Some("尚未找到游戏文件夹".to_string()),
         },
     }
+}
+
+#[tauri::command]
+pub fn game_running(state: State<'_, Mutex<LauncherState>>) -> bool {
+    state.lock().unwrap().game_running
 }
 
 #[derive(Serialize)]
@@ -130,6 +175,7 @@ pub async fn launch_game(
         let _ = existing.show();
         let _ = existing.unminimize();
         let _ = existing.set_focus();
+        state.lock().unwrap().game_running = true;
         return Ok(LaunchResult { url, fullscreen });
     }
 
@@ -146,10 +192,23 @@ pub async fn launch_game(
     if !fullscreen {
         builder = builder.inner_size(WINDOWED_SIZE.0, WINDOWED_SIZE.1);
     }
-    builder
+    let window = builder
         .center()
         .build()
         .map_err(|e| format!("创建游戏窗口失败：{e}"))?;
+
+    state.lock().unwrap().game_running = true;
+
+    // 游戏窗口销毁时更新运行状态并通知前端恢复「开始游戏」
+    let app_handle = app.clone();
+    window.on_window_event(move |event| {
+        if matches!(event, tauri::WindowEvent::Destroyed) {
+            if let Some(state) = app_handle.try_state::<Mutex<LauncherState>>() {
+                state.lock().unwrap().game_running = false;
+            }
+            let _ = app_handle.emit(GAME_CLOSED_EVENT, ());
+        }
+    });
 
     Ok(LaunchResult { url, fullscreen })
 }

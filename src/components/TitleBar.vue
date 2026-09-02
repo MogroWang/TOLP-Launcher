@@ -5,12 +5,14 @@ const win = getCurrentWindow();
 </script>
 
 <template>
-  <header class="titlebar">
+  <!-- 整条标题栏均可拖动：Tauri 以 mousedown 目标元素自身是否带
+       data-tauri-drag-region 判定，故每个非交互子元素都需携带该属性 -->
+  <header class="titlebar" data-tauri-drag-region>
     <div class="titlebar__brand" data-tauri-drag-region>
-      <span class="titlebar__dot" aria-hidden="true"></span>
-      <span class="titlebar__name">TOLP LAUNCHER</span>
+      <span class="titlebar__dot" data-tauri-drag-region aria-hidden="true"></span>
+      <span class="titlebar__name" data-tauri-drag-region>TOLP LAUNCHER</span>
     </div>
-    <div class="titlebar__actions">
+    <div class="titlebar__actions" data-tauri-drag-region>
       <button
         class="titlebar__btn"
         type="button"

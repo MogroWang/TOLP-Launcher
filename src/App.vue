@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { getVersion } from '@tauri-apps/api/app';
 import {
   getGameStatus,
   getSettings,
+  isGameRunning,
   launchGame,
+  onGameClosed,
   saveSettings,
   type GameStatus,
   type Settings,
@@ -13,19 +15,32 @@ import TitleBar from './components/TitleBar.vue';
 import HeroSection from './components/HeroSection.vue';
 import SettingsSheet from './components/SettingsSheet.vue';
 
-const settings = ref<Settings>({ launchMode: 'fullscreen', gameDir: null });
+const settings = ref<Settings>({ launchMode: 'fullscreen', gameDir: null, versionId: '1.0.0' });
 const status = ref<GameStatus>({ found: false, dir: null, reason: null });
 const version = ref('');
 /** 递增计数作为“打开抽屉”的请求信号，抽屉内部自行管理开关 */
 const settingsRequest = ref(0);
 const launching = ref(false);
 const launchError = ref<string | null>(null);
+/** 游戏窗口是否正在运行（启动成功置位，窗口关闭事件复位） */
+const running = ref(false);
+let unlistenGameClosed: (() => void) | null = null;
 
 onMounted(async () => {
   const [loadedSettings, loadedStatus] = await Promise.all([getSettings(), getGameStatus()]);
   settings.value = loadedSettings;
   status.value = loadedStatus;
   version.value = await getVersion().catch(() => '');
+  // 页面可能在游戏运行中被刷新，挂载时向后端同步一次真实状态
+  running.value = await isGameRunning();
+  unlistenGameClosed = await onGameClosed(() => {
+    running.value = false;
+  });
+});
+
+onBeforeUnmount(() => {
+  unlistenGameClosed?.();
+  unlistenGameClosed = null;
 });
 
 async function applySettings(next: Settings): Promise<void> {
@@ -44,6 +59,7 @@ async function onLaunch(): Promise<void> {
   launching.value = true;
   try {
     await launchGame();
+    running.value = true;
   } catch (error) {
     launchError.value = String(error);
   } finally {
@@ -60,6 +76,7 @@ async function onLaunch(): Promise<void> {
         <HeroSection
           :status="status"
           :launching="launching"
+          :running="running"
           :error="launchError"
           @launch="onLaunch"
           @request-settings="settingsRequest++"

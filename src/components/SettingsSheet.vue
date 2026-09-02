@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
+import { BUILTIN_GAME_VERSIONS } from '../lib/tauri';
 import type { GameStatus, LaunchMode, Settings } from '../lib/tauri';
 
 const props = defineProps<{
@@ -26,6 +27,20 @@ const thumbShift = computed(() => {
   const index = modes.findIndex((m) => m.value === props.settings.launchMode);
   return index <= 0 ? 0 : index;
 });
+
+/** 版本来源：内置版本（当前仅 1.0.0 占位）或自定义目录 */
+const isBuiltinVersion = computed(() => props.settings.versionId !== null);
+const versionThumbShift = computed(() => (isBuiltinVersion.value ? 0 : 1));
+
+function setBuiltinVersion(): void {
+  if (isBuiltinVersion.value) return;
+  emit('change', { ...props.settings, versionId: BUILTIN_GAME_VERSIONS[0].id });
+}
+
+function setCustomVersion(): void {
+  if (!isBuiltinVersion.value) return;
+  emit('change', { ...props.settings, versionId: null });
+}
 
 function openDrawer(): void {
   open.value = true;
@@ -113,6 +128,37 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
     </section>
 
     <section class="drawer__section">
+      <h3 class="drawer__label">游戏版本</h3>
+      <div class="seg" role="radiogroup" aria-label="游戏版本">
+        <span class="seg__thumb" :style="{ transform: `translateX(${versionThumbShift * 100}%)` }" aria-hidden="true"></span>
+        <button
+          class="seg__item"
+          :class="{ 'is-active': isBuiltinVersion }"
+          type="button"
+          role="radio"
+          :aria-checked="isBuiltinVersion"
+          @click="setBuiltinVersion"
+        >
+          {{ BUILTIN_GAME_VERSIONS[0].label }}
+        </button>
+        <button
+          class="seg__item"
+          :class="{ 'is-active': !isBuiltinVersion }"
+          type="button"
+          role="radio"
+          :aria-checked="!isBuiltinVersion"
+          @click="setCustomVersion"
+        >
+          自定义目录
+        </button>
+      </div>
+      <p v-if="isBuiltinVersion" class="drawer__hint">
+        内置版本 {{ BUILTIN_GAME_VERSIONS[0].id }} 为占位：当前使用启动器同目录的
+        game 文件夹启动；后续版本管理将支持多版本的安装与切换。
+      </p>
+    </section>
+
+    <section v-if="!isBuiltinVersion" class="drawer__section">
       <div class="drawer__label-row">
         <h3 class="drawer__label">游戏目录</h3>
         <span class="drawer__chip" :class="status.found ? 'is-ok' : 'is-missing'">

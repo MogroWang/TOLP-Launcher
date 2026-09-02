@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { GameStatus } from '../lib/tauri';
 import OrbButton from './OrbButton.vue';
 
-defineProps<{
+const props = defineProps<{
   status: GameStatus;
   launching: boolean;
+  running: boolean;
   error: string | null;
 }>();
 
@@ -12,6 +14,12 @@ defineEmits<{
   launch: [];
   requestSettings: [];
 }>();
+
+/** 运行中点击主球会把已有游戏窗口带回前台（后端复用窗口逻辑） */
+const playLabel = computed(() => {
+  if (props.running) return '正在运行';
+  return props.status.found ? '开始游戏' : '未找到游戏文件';
+});
 </script>
 
 <template>
@@ -52,9 +60,9 @@ defineEmits<{
         :size="148"
         tone="purple"
         breathing
-        :label="status.found ? '开始游戏' : '未找到游戏文件'"
+        :label="playLabel"
         :loading="launching"
-        :disabled="!status.found"
+        :disabled="!status.found && !running"
         @click="$emit('launch')"
       >
         <svg viewBox="0 0 48 48" aria-hidden="true">
@@ -69,6 +77,11 @@ defineEmits<{
     <div class="hero__meta" aria-live="polite">
       <template v-if="launching">
         <span>正在启动…</span>
+      </template>
+      <template v-else-if="running">
+        <span class="hero__dot hero__dot--ok" aria-hidden="true"></span>
+        <span>游戏正在运行</span>
+        <span class="hero__path" :title="status.dir ?? ''">{{ status.dir }}</span>
       </template>
       <template v-else-if="status.found">
         <span class="hero__dot hero__dot--ok" aria-hidden="true"></span>
