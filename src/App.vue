@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { getVersion } from '@tauri-apps/api/app';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   getGameStatus,
   getSettings,
@@ -13,15 +12,14 @@ import {
 import TitleBar from './components/TitleBar.vue';
 import HeroSection from './components/HeroSection.vue';
 import SettingsSheet from './components/SettingsSheet.vue';
-import GameStage from './components/GameStage.vue';
 
 const settings = ref<Settings>({ launchMode: 'fullscreen', gameDir: null });
 const status = ref<GameStatus>({ found: false, dir: null, reason: null });
 const version = ref('');
-const sheetOpen = ref(false);
+/** 递增计数作为“打开抽屉”的请求信号，抽屉内部自行管理开关 */
+const settingsRequest = ref(0);
 const launching = ref(false);
 const launchError = ref<string | null>(null);
-const gameUrl = ref<string | null>(null);
 
 onMounted(async () => {
   const [loadedSettings, loadedStatus] = await Promise.all([getSettings(), getGameStatus()]);
@@ -41,40 +39,30 @@ async function applySettings(next: Settings): Promise<void> {
 }
 
 async function onLaunch(): Promise<void> {
-  if (launching.value || gameUrl.value) return;
+  if (launching.value) return;
   launchError.value = null;
   launching.value = true;
-  sheetOpen.value = false;
   try {
-    const result = await launchGame();
-    const win = getCurrentWindow();
-    await win.setFullscreen(result.fullscreen);
-    gameUrl.value = result.url;
+    await launchGame();
   } catch (error) {
     launchError.value = String(error);
   } finally {
     launching.value = false;
   }
 }
-
-async function onExitGame(): Promise<void> {
-  gameUrl.value = null;
-  status.value = await getGameStatus().catch(() => status.value);
-}
 </script>
 
 <template>
   <div class="app">
-    <TitleBar v-show="!gameUrl" />
-    <main v-show="!gameUrl" class="app__stage">
-      <div class="app__shift" :class="{ 'is-shifted': sheetOpen }">
+    <TitleBar />
+    <main class="app__stage">
+      <div class="app__shift">
         <HeroSection
           :status="status"
           :launching="launching"
           :error="launchError"
-          :settings-open="sheetOpen"
           @launch="onLaunch"
-          @toggle-settings="sheetOpen = !sheetOpen"
+          @request-settings="settingsRequest++"
         />
       </div>
       <footer class="app__footer">
@@ -84,14 +72,12 @@ async function onExitGame(): Promise<void> {
         </span>
       </footer>
       <SettingsSheet
-        :open="sheetOpen"
+        :open-request="settingsRequest"
         :settings="settings"
         :status="status"
-        @update:open="sheetOpen = $event"
         @change="applySettings"
       />
     </main>
-    <GameStage v-if="gameUrl" :url="gameUrl" @exit="onExitGame" />
   </div>
 </template>
 
@@ -111,7 +97,8 @@ async function onExitGame(): Promise<void> {
   overflow: hidden;
 }
 
-/* 抽屉打开时主页内容平移避让，位移量与抽屉宽度精确互补 */
+/* 抽屉打开时主页内容平移避让（位移量与抽屉宽度精确互补）；
+   开合状态由 CSS :has() 直接从抽屉元素读取，不依赖跨组件状态 */
 .app__shift {
   flex: 1;
   min-height: 0;
@@ -120,7 +107,7 @@ async function onExitGame(): Promise<void> {
   transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.app__shift.is-shifted {
+.app__stage:has(.drawer[data-open='true']) .app__shift {
   transform: translateX(calc(-1 * min(400px, 88%) / 2));
 }
 

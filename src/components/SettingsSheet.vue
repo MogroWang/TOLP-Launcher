@@ -1,37 +1,49 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import { open } from '@tauri-apps/plugin-dialog';
+import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import type { GameStatus, LaunchMode, Settings } from '../lib/tauri';
 
 const props = defineProps<{
-  open: boolean;
+  /** 外部请求打开抽屉：该值每次递增都会打开抽屉 */
+  openRequest?: number;
   settings: Settings;
   status: GameStatus;
 }>();
 
 const emit = defineEmits<{
-  'update:open': [boolean];
   change: [Settings];
 }>();
+
+const open = ref(false);
+const drawerEl = ref<HTMLElement | null>(null);
 
 const modes: Array<{ value: LaunchMode; label: string }> = [
   { value: 'fullscreen', label: '全屏启动' },
   { value: 'windowed', label: '窗口化启动' },
 ];
 
-const drawerEl = ref<HTMLElement | null>(null);
-
 const thumbShift = computed(() => {
   const index = modes.findIndex((m) => m.value === props.settings.launchMode);
   return index <= 0 ? 0 : index;
 });
+
+function openDrawer(): void {
+  open.value = true;
+  void nextTick(() => {
+    drawerEl.value?.querySelector<HTMLButtonElement>('.seg__item')?.focus();
+  });
+}
+
+function closeDrawer(): void {
+  open.value = false;
+}
 
 function setMode(mode: LaunchMode): void {
   emit('change', { ...props.settings, launchMode: mode });
 }
 
 async function chooseDir(): Promise<void> {
-  const picked = await open({
+  const picked = await openDialog({
     directory: true,
     multiple: false,
     title: '选择游戏目录（需包含 index.html）',
@@ -46,33 +58,30 @@ function resetDir(): void {
 }
 
 function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') {
-    emit('update:open', false);
+  if (event.key === 'Escape' && open.value) {
+    closeDrawer();
   }
 }
 
 watch(
-  () => props.open,
-  (open) => {
-    if (open) {
-      window.addEventListener('keydown', onKeydown);
-      void nextTick(() => {
-        drawerEl.value?.querySelector<HTMLButtonElement>('.seg__item')?.focus();
-      });
-    } else {
-      window.removeEventListener('keydown', onKeydown);
+  () => props.openRequest,
+  (val) => {
+    // 跳过初始挂载（undefined→0）与 0 值，仅响应真正的递增请求
+    if (val) {
+      openDrawer();
     }
   },
 );
 
+window.addEventListener('keydown', onKeydown);
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 </script>
 
 <template>
-  <aside v-show="open" ref="drawerEl" class="drawer" role="dialog" aria-label="启动设置">
+  <aside v-show="open" ref="drawerEl" class="drawer" :data-open="open" role="dialog" aria-label="启动设置">
     <header class="drawer__head">
       <h2>启动设置</h2>
-      <button class="drawer__close" type="button" aria-label="关闭设置" @click="emit('update:open', false)">
+      <button class="drawer__close" type="button" aria-label="关闭设置" @click="closeDrawer">
         <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
           <path
             d="M3.4 3.4l7.2 7.2M10.6 3.4l-7.2 7.2"

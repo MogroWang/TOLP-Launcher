@@ -6,12 +6,11 @@ defineProps<{
   status: GameStatus;
   launching: boolean;
   error: string | null;
-  settingsOpen: boolean;
 }>();
 
 defineEmits<{
   launch: [];
-  toggleSettings: [];
+  requestSettings: [];
 }>();
 </script>
 
@@ -29,9 +28,7 @@ defineEmits<{
         :size="56"
         tone="white"
         label="启动设置"
-        :active="settingsOpen"
-        :aria-expanded="settingsOpen"
-        @click="$emit('toggleSettings')"
+        @click="$emit('requestSettings')"
       >
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <g stroke="#fff" stroke-width="2" stroke-linecap="round">
@@ -81,7 +78,7 @@ defineEmits<{
       <template v-else>
         <span class="hero__dot hero__dot--missing" aria-hidden="true"></span>
         <span>{{ status.reason ?? '尚未找到游戏文件' }}</span>
-        <button class="hero__fix" type="button" @click="$emit('toggleSettings')">去选择游戏目录</button>
+        <button class="hero__fix" type="button" @click="$emit('requestSettings')">去选择游戏目录</button>
       </template>
     </div>
 

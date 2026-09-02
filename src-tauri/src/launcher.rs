@@ -1,10 +1,10 @@
-//! 游戏目录解析与游戏启动。
+//! 游戏目录解析与游戏启动（独立游戏窗口）。
 
 use serde::Serialize;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use tauri::State;
+use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
 use crate::game_server::GameServer;
 use crate::settings::{self, LaunchMode, Settings};
@@ -12,6 +12,9 @@ use crate::settings::{self, LaunchMode, Settings};
 pub struct LauncherState {
     pub server: Option<GameServer>,
 }
+
+const GAME_WINDOW_LABEL: &str = "game";
+const WINDOWED_SIZE: (f64, f64) = (1280.0, 720.0);
 
 /// 解析当前生效的游戏目录：
 /// 1. 设置中指定的目录；
@@ -74,15 +77,19 @@ pub fn game_status() -> GameStatus {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LaunchResult {
-    /// 游戏页面地址（本地静态服务器），由前端以内嵌方式加载。
+    /// 游戏页面地址（本地静态服务器），主要用于调试
     pub url: String,
     pub fullscreen: bool,
 }
 
-/// 启动游戏：确保本地静态服务器指向游戏目录，返回游戏页面地址。
-/// 游戏画面由前端以 iframe 内嵌呈现，全屏/窗口化通过主窗口控制。
+/// 启动游戏：确保本地静态服务器指向游戏目录，
+/// 然后按启动设置以独立窗口打开游戏（全屏或 1280×720 窗口）。
+///
+/// 必须是 async command：窗口创建需要与主线程事件循环交互，
+/// 同步 command 会与其互锁导致应用挂起。
 #[tauri::command]
-pub fn launch_game(
+pub async fn launch_game(
+    app: AppHandle,
     state: State<'_, Mutex<LauncherState>>,
 ) -> Result<LaunchResult, String> {
     let settings = settings::load();
@@ -112,8 +119,37 @@ pub fn launch_game(
 
     // 用 localhost 而非 127.0.0.1：localhost 在常见代理软件的绕过列表里，
     // 直接写回环 IP 可能被系统代理规则拦截导致加载失败。
-    Ok(LaunchResult {
-        url: format!("http://localhost:{port}/index.html"),
-        fullscreen,
-    })
+    let url = format!("http://localhost:{port}/index.html");
+
+    if let Some(existing) = app.get_webview_window(GAME_WINDOW_LABEL) {
+        let _ = existing.set_fullscreen(fullscreen);
+        if !fullscreen {
+            let _ = existing.set_size(tauri::LogicalSize::new(WINDOWED_SIZE.0, WINDOWED_SIZE.1));
+            let _ = existing.center();
+        }
+        let _ = existing.show();
+        let _ = existing.unminimize();
+        let _ = existing.set_focus();
+        return Ok(LaunchResult { url, fullscreen });
+    }
+
+    let parsed_url: tauri::Url = url
+        .parse()
+        .map_err(|e| format!("游戏地址解析失败：{e}"))?;
+
+    let mut builder = WebviewWindowBuilder::new(&app, GAME_WINDOW_LABEL, WebviewUrl::External(parsed_url))
+        .title("光点之旅 · Tour of Light Point")
+        .resizable(true)
+        .min_inner_size(640.0, 360.0)
+        .decorations(true)
+        .fullscreen(fullscreen);
+    if !fullscreen {
+        builder = builder.inner_size(WINDOWED_SIZE.0, WINDOWED_SIZE.1);
+    }
+    builder
+        .center()
+        .build()
+        .map_err(|e| format!("创建游戏窗口失败：{e}"))?;
+
+    Ok(LaunchResult { url, fullscreen })
 }

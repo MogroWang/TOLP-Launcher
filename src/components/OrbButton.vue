@@ -78,6 +78,8 @@ withDefaults(
   position: absolute;
   inset: 0;
   border-radius: 50%;
+  display: grid;
+  place-items: center;
 }
 
 .orb--purple .orb__body {
