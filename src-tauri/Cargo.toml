@@ -1,6 +1,6 @@
 [package]
 name = "tolp-launcher"
-version = "0.3.0"
+version = "0.4.0"
 description = "光点之旅（Tour of Light Point）桌面启动器"
 authors = ["MogroWang Studio"]
 edition = "2021"

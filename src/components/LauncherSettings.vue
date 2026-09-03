@@ -89,9 +89,11 @@ function resetDir(): void {
         </div>
 
         <p class="ls__hint">
-          选择内置版本时优先使用启动器同目录
-          <code>games/&lt;版本&gt;/</code> 托管目录；把 GDevelop 导出的网页版游戏（含
-          index.html 的文件夹）放入同目录 <code>game</code> 文件夹，即可作为默认游戏。
+          选择内置版本时优先使用数据文件夹
+          <code>launcher-data/versions/&lt;版本&gt;/</code>，未识别到时可在版本管理中指定自定义位置；
+          把 GDevelop 导出的网页版游戏（含 index.html 的文件夹）放入同目录
+          <code>game</code> 文件夹，即可作为默认游戏。游戏存档保存在数据文件夹的
+          <code>saves</code> 子目录中。
         </p>
       </div>
     </div>

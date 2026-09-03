@@ -3,10 +3,12 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { getVersion } from '@tauri-apps/api/app';
 import {
   BUILTIN_GAME_VERSIONS,
+  closeGame,
   getGameStatus,
   getSettings,
   isGameRunning,
   launchGame,
+  listVersions,
   onGameClosed,
   saveSettings,
   type GameStatus,
@@ -19,8 +21,13 @@ import QuickLaunch from './components/QuickLaunch.vue';
 import VersionManager from './components/VersionManager.vue';
 import LauncherSettings from './components/LauncherSettings.vue';
 
-const settings = ref<Settings>({ launchMode: 'fullscreen', gameDir: null, versionId: BUILTIN_GAME_VERSIONS[0].id });
-const status = ref<GameStatus>({ found: false, dir: null, reason: null });
+const settings = ref<Settings>({
+  launchMode: 'fullscreen',
+  gameDir: null,
+  versionId: BUILTIN_GAME_VERSIONS[0].id,
+  customVersionDir: null,
+});
+const status = ref<GameStatus>({ found: false, dir: null, reason: null, version: null, official: false });
 const version = ref('');
 const page = ref<PageId>('launch');
 const launching = ref(false);
@@ -30,11 +37,18 @@ const running = ref(false);
 let unlistenGameClosed: (() => void) | null = null;
 
 onMounted(async () => {
-  const [loadedSettings, loadedStatus] = await Promise.all([getSettings(), getGameStatus()]);
-  // 旧版本设置的版本 id 不在当前版本表时归一化到最新内置版本
+  const [loadedSettings, loadedStatus, scan] = await Promise.all([
+    getSettings(),
+    getGameStatus(),
+    listVersions().catch(() => null),
+  ]);
+  // 旧版本设置的版本 id 不在当前版本表 / 数据文件夹中时，归一化到最新内置版本
+  const knownIds = new Set<string>([
+    ...BUILTIN_GAME_VERSIONS.map((v) => v.id),
+    ...(scan?.versions ?? []).map((v) => v.id),
+  ]);
   const validVersion =
-    loadedSettings.versionId !== null &&
-    BUILTIN_GAME_VERSIONS.some((v) => v.id === loadedSettings.versionId);
+    loadedSettings.versionId !== null && knownIds.has(loadedSettings.versionId);
   settings.value = validVersion
     ? loadedSettings
     : { ...loadedSettings, versionId: loadedSettings.versionId === null ? null : BUILTIN_GAME_VERSIONS[0].id };
@@ -68,6 +82,16 @@ async function applySettings(next: Settings): Promise<void> {
 async function onLaunch(): Promise<void> {
   if (launching.value) return;
   launchError.value = null;
+  // 运行中主按钮为「取消运行」：关闭游戏窗口，销毁事件会把 running 复位
+  if (running.value) {
+    try {
+      await closeGame();
+      running.value = false;
+    } catch (error) {
+      launchError.value = String(error);
+    }
+    return;
+  }
   launching.value = true;
   try {
     await launchGame();

@@ -15,8 +15,10 @@ pub enum LaunchMode {
 pub struct Settings {
     pub launch_mode: LaunchMode,
     pub game_dir: Option<String>,
-    /// 选中的游戏版本：`Some(id)` 为内置版本（如 4.0.002），`None` 为自定义目录启动。
+    /// 选中的游戏版本：`Some(id)` 为版本启动（数据文件夹版本或内置版本），`None` 为自定义目录启动。
     pub version_id: Option<String>,
+    /// 内置版本的自定义位置：数据文件夹中未识别到该版本时使用的游戏目录。
+    pub custom_version_dir: Option<String>,
 }
 
 /// 便携版约定：设置文件始终放在可执行文件同目录。
