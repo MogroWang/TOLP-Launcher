@@ -345,18 +345,19 @@ pub async fn launch_game(
     let fullscreen = settings.launch_mode == LaunchMode::Fullscreen;
     let (window_w, window_h) = windowed_size(&settings);
 
-    let port = {
+    let (port, root_changed) = {
         let mut guard = state.lock().unwrap();
         match guard.server.as_ref() {
             Some(server) => {
+                let changed = server.root() != dir;
                 server.set_root(dir.clone());
-                server.port
+                (server.port, changed)
             }
             None => {
                 let server = GameServer::start(dir.clone())?;
                 let port = server.port;
                 guard.server = Some(server);
-                port
+                (port, true)
             }
         }
     };
@@ -364,6 +365,9 @@ pub async fn launch_game(
     // 用 localhost 而非 127.0.0.1：localhost 在常见代理软件的绕过列表里，
     // 直接写回环 IP 可能被系统代理规则拦截导致加载失败。
     let url = format!("http://localhost:{port}/index.html");
+    let parsed_url: tauri::Url = url
+        .parse()
+        .map_err(|e| format!("游戏地址解析失败：{e}"))?;
 
     if let Some(existing) = app.get_webview_window(GAME_WINDOW_LABEL) {
         let _ = existing.set_fullscreen(fullscreen);
@@ -374,13 +378,14 @@ pub async fn launch_game(
         let _ = existing.show();
         let _ = existing.unminimize();
         let _ = existing.set_focus();
+        // 服务器根目录已切换（如换版本后再次启动）时，复用窗口需重新加载新目录；
+        // 目录未变则不干扰游戏内状态
+        if root_changed {
+            let _ = existing.navigate(parsed_url.clone());
+        }
         state.lock().unwrap().game_running = true;
         return Ok(LaunchResult { url, fullscreen });
     }
-
-    let parsed_url: tauri::Url = url
-        .parse()
-        .map_err(|e| format!("游戏地址解析失败：{e}"))?;
 
     let mut builder = WebviewWindowBuilder::new(&app, GAME_WINDOW_LABEL, WebviewUrl::External(parsed_url))
         .title("光点之旅 · Tour of Light Point")

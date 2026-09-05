@@ -101,6 +101,7 @@ export function isGameRunning(): Promise<boolean> {
 }
 
 export function launchGame(): Promise<LaunchResult> {
+  if (!inTauri) return Promise.reject('请在桌面应用中运行');
   return invoke<LaunchResult>('launch_game');
 }
 

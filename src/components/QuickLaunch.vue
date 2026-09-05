@@ -32,8 +32,15 @@ const versionLabel = computed(() => {
   return id && id !== builtinVersion.id ? id : '4.0.002 DEV';
 });
 
+/** 第一项描述：数据文件夹中的版本不是内部开发版，用通用文案 */
+const versionDesc = computed(() =>
+  props.settings.versionId && props.settings.versionId !== builtinVersion.id
+    ? t('ql.dataVersionDesc')
+    : t('ql.builtinDesc'),
+);
+
 const versionOptions = computed(() => [
-  { value: 'builtin' as const, label: versionLabel.value, desc: t('ql.builtinDesc') },
+  { value: 'builtin' as const, label: versionLabel.value, desc: versionDesc.value },
   { value: 'custom' as const, label: t('ql.custom'), desc: t('ql.customDesc') },
 ]);
 
@@ -62,9 +69,15 @@ const statusText = computed(() => {
 });
 
 function setVersion(value: VersionChoice): void {
-  const versionId = value === 'builtin' ? builtinVersion.id : null;
-  if (props.settings.versionId === versionId) return;
-  emit('change', { ...props.settings, versionId });
+  if (value === 'builtin') {
+    // 第一项始终表示「按当前所选版本启动」：已是版本启动（含数据文件夹
+    // 中的版本）时保持不变，仅从自定义启动切换时才落到内置版本
+    if (props.settings.versionId !== null) return;
+    emit('change', { ...props.settings, versionId: builtinVersion.id });
+    return;
+  }
+  if (props.settings.versionId === null) return;
+  emit('change', { ...props.settings, versionId: null });
 }
 
 function setMode(mode: LaunchMode): void {

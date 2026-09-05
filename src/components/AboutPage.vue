@@ -12,7 +12,7 @@ defineProps<{
 const dataDir = ref('');
 
 onMounted(async () => {
-  dataDir.value = await getDataDir();
+  dataDir.value = await getDataDir().catch(() => '');
 });
 </script>
 

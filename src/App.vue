@@ -46,16 +46,25 @@ onMounted(async () => {
     getGameStatus(),
     listVersions().catch(() => null),
   ]);
-  // 旧版本设置的版本 id 不在当前版本表 / 数据文件夹中时，归一化到最新内置版本
-  const knownIds = new Set<string>([
-    ...BUILTIN_GAME_VERSIONS.map((v) => v.id),
-    ...(scan?.versions ?? []).map((v) => v.id),
-  ]);
-  const validVersion =
-    loadedSettings.versionId !== null && knownIds.has(loadedSettings.versionId);
-  settings.value = validVersion
-    ? loadedSettings
-    : { ...loadedSettings, versionId: loadedSettings.versionId === null ? null : BUILTIN_GAME_VERSIONS[0].id };
+  // 旧版本设置的版本 id 不在当前版本表 / 数据文件夹中时，归一化到最新内置版本；
+  // 版本扫描失败（scan 为 null）时无法核对，保留原值不重置
+  let normalized = loadedSettings;
+  if (scan !== null) {
+    const knownIds = new Set<string>([
+      ...BUILTIN_GAME_VERSIONS.map((v) => v.id),
+      ...scan.versions.map((v) => v.id),
+    ]);
+    const valid =
+      loadedSettings.versionId !== null && knownIds.has(loadedSettings.versionId);
+    if (!valid) {
+      normalized = {
+        ...loadedSettings,
+        versionId:
+          loadedSettings.versionId === null ? null : BUILTIN_GAME_VERSIONS[0].id,
+      };
+    }
+  }
+  settings.value = normalized;
   if (settings.value !== loadedSettings) {
     void saveSettings(settings.value);
   }

@@ -23,6 +23,7 @@ const messages: Record<Language, Record<string, string>> = {
 
     'ql.versionLabel': '启动版本',
     'ql.builtinDesc': '光点之旅 · 内部开发版本',
+    'ql.dataVersionDesc': '来自数据文件夹的版本',
     'ql.custom': '自定义启动',
     'ql.customDesc': '使用指定游戏目录启动',
     'ql.launch': '启动游戏',
@@ -120,6 +121,7 @@ const messages: Record<Language, Record<string, string>> = {
 
     'ql.versionLabel': 'Game version',
     'ql.builtinDesc': 'Tour of Light Point · internal dev build',
+    'ql.dataVersionDesc': 'Version from the data folder',
     'ql.custom': 'Custom launch',
     'ql.customDesc': 'Launch from a chosen game folder',
     'ql.launch': 'Launch Game',
@@ -201,9 +203,10 @@ const messages: Record<Language, Record<string, string>> = {
   },
 };
 
-/** 取当前语言的文案；缺 key 时回落中文，再缺则原样返回 key */
+/** 取当前语言的文案；缺 key 时回落中文，再缺则原样返回 key。
+ *  语言值可能来自设置文件（可能被手改为非法值），用可选链兜底避免白屏 */
 export function t(key: string): string {
-  return messages[locale.value][key] ?? messages['zh-CN'][key] ?? key;
+  return messages[locale.value]?.[key] ?? messages['zh-CN'][key] ?? key;
 }
 
 /**
@@ -221,8 +224,8 @@ export function translateMessage(text: string): string {
   return key ? t(key) : text;
 }
 
-/** 切换界面语言并同步 html lang 属性 */
+/** 切换界面语言并同步 html lang 属性；非法语言值（如设置文件被手改）回落简体中文 */
 export function setLocale(lang: Language): void {
-  locale.value = lang;
-  document.documentElement.lang = lang;
+  locale.value = lang in messages ? lang : 'zh-CN';
+  document.documentElement.lang = locale.value;
 }

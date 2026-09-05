@@ -50,6 +50,11 @@ impl GameServer {
     pub fn set_root(&self, root: PathBuf) {
         *self.root.lock().unwrap() = root;
     }
+
+    /// 当前服务的游戏目录（用于判断复用游戏窗口前是否需要重新加载）。
+    pub fn root(&self) -> PathBuf {
+        self.root.lock().unwrap().clone()
+    }
 }
 
 fn handle_request(request: tiny_http::Request, root: &Arc<Mutex<PathBuf>>) {
@@ -101,14 +106,20 @@ fn handle_request(request: tiny_http::Request, root: &Arc<Mutex<PathBuf>>) {
 }
 
 /// 把 URL 路径解码为游戏目录内的相对路径，拒绝目录穿越。
+///
+/// `/` 与 `\` 均按分隔符切分：Windows 文件系统把两者等同，若只按 `/` 切分，
+/// `%5C..%5C`（反斜杠）会作为普通组件绕过 `..` 检查实现穿越。
+/// 含 `:` 的组件同样拒绝，防 `C:/...` 盘符绝对路径（PathBuf::push 会整体
+/// 替换根目录）与 NTFS 备用数据流。
 fn sanitize_path(url: &str) -> Option<PathBuf> {
     let without_query = url.split(['?', '#']).next()?;
     let decoded = percent_decode_str(without_query).decode_utf8_lossy();
     let mut out = PathBuf::new();
-    for component in decoded.split('/') {
+    for component in decoded.split(['/', '\\']) {
         match component {
             "" | "." => {}
             ".." => return None,
+            c if c.contains(':') => return None,
             c => out.push(c),
         }
     }
