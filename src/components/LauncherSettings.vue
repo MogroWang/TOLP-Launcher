@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
-import type { GameStatus, LaunchMode, Settings, WindowedSize } from '../lib/tauri';
+import type { GameStatus, Language, LaunchMode, Settings, WindowedSize } from '../lib/tauri';
+import { setLocale, t } from '../lib/i18n';
 import SegmentedControl from './SegmentedControl.vue';
 import Dropdown from './Dropdown.vue';
 import Slider from './Slider.vue';
@@ -15,32 +16,50 @@ const emit = defineEmits<{
   change: [Settings];
 }>();
 
-const modeOptions: Array<{ value: LaunchMode; label: string }> = [
-  { value: 'fullscreen', label: '全屏启动' },
-  { value: 'windowed', label: '窗口化启动' },
-];
+const modeOptions = computed(() => [
+  { value: 'fullscreen' as const, label: t('mode.fullscreen') },
+  { value: 'windowed' as const, label: t('mode.windowed') },
+]);
 
 /** 窗口大小预设 */
 const WINDOW_PRESETS: ReadonlyArray<{
   value: string;
   label: string;
-  desc?: string;
+  descKey?: string;
   width: number;
   height: number;
 }> = [
-  { value: '960x540', label: '960 × 540', desc: '小窗口', width: 960, height: 540 },
-  { value: '1280x720', label: '1280 × 720', desc: '推荐', width: 1280, height: 720 },
+  { value: '960x540', label: '960 × 540', descKey: 'ls.sizeSmall', width: 960, height: 540 },
+  { value: '1280x720', label: '1280 × 720', descKey: 'ls.sizeRecommended', width: 1280, height: 720 },
   { value: '1600x900', label: '1600 × 900', width: 1600, height: 900 },
-  { value: '1920x1080', label: '1920 × 1080', desc: '大窗口', width: 1920, height: 1080 },
+  { value: '1920x1080', label: '1920 × 1080', descKey: 'ls.sizeLarge', width: 1920, height: 1080 },
 ];
 
 /** 自定义滑块的调节范围（后端另有安全夹取） */
 const SIZE_RANGE = { minWidth: 640, maxWidth: 3840, minHeight: 360, maxHeight: 2160 };
 
-const sizeOptions = [
-  ...WINDOW_PRESETS.map(({ value, label, desc }) => ({ value, label, desc })),
-  { value: 'custom', label: '自定义尺寸', desc: '拖动滑块调节宽高' },
+const sizeOptions = computed(() => [
+  ...WINDOW_PRESETS.map(({ value, label, descKey }) => ({
+    value,
+    label,
+    desc: descKey ? t(descKey) : undefined,
+  })),
+  { value: 'custom', label: t('ls.customSize'), desc: t('ls.customSizeDesc') },
+]);
+
+/** 语言名称各自以其语言显示（简体中文 / English），不随界面语言翻译 */
+const languageOptions: Array<{ value: Language; label: string }> = [
+  { value: 'zh-CN', label: '简体中文' },
+  { value: 'en', label: 'English' },
 ];
+
+const languageValue = computed<Language>(() => props.settings.language ?? 'zh-CN');
+
+function setLanguage(lang: Language): void {
+  setLocale(lang);
+  if (props.settings.language === lang) return;
+  emit('change', { ...props.settings, language: lang });
+}
 
 /** 「自定义尺寸」是否被选中（选中后展开宽高滑块） */
 const customMode = ref(false);
@@ -102,7 +121,7 @@ async function chooseDir(): Promise<void> {
   const picked = await openDialog({
     directory: true,
     multiple: false,
-    title: '选择游戏目录（需包含 index.html）',
+    title: t('dialog.pickGameDir'),
   });
   if (typeof picked === 'string') {
     emit('change', { ...props.settings, versionId: null, gameDir: picked });
@@ -117,57 +136,76 @@ function resetDir(): void {
 <template>
   <section class="ls">
     <header class="ls__head">
-      <h2>启动器设置</h2>
-      <p>配置启动方式与游戏目录，更改会立即保存。</p>
+      <h2>{{ t('ls.title') }}</h2>
+      <p>{{ t('ls.subtitle') }}</p>
     </header>
 
     <div class="ls__group">
-      <h3 class="ls__label">启动</h3>
+      <h3 class="ls__label">{{ t('ls.general') }}</h3>
       <div class="ls__card">
         <div class="ls__row">
           <div class="ls__row-text">
-            <span class="ls__row-title">启动方式</span>
-            <span class="ls__row-desc">游戏窗口以全屏或设定尺寸的窗口打开</span>
+            <span class="ls__row-title">{{ t('ls.language') }}</span>
+            <span class="ls__row-desc">{{ t('ls.languageDesc') }}</span>
+          </div>
+          <SegmentedControl
+            class="ls__seg"
+            :options="languageOptions"
+            :model-value="languageValue"
+            :label="t('ls.language')"
+            @update:model-value="setLanguage"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div class="ls__group">
+      <h3 class="ls__label">{{ t('ls.launchGroup') }}</h3>
+      <div class="ls__card">
+        <div class="ls__row">
+          <div class="ls__row-text">
+            <span class="ls__row-title">{{ t('app.launchMode') }}</span>
+            <span class="ls__row-desc">{{ t('ls.launchModeDesc') }}</span>
           </div>
           <SegmentedControl
             class="ls__seg"
             :options="modeOptions"
             :model-value="settings.launchMode"
-            label="启动方式"
+            :label="t('app.launchMode')"
             @update:model-value="setMode"
           />
         </div>
 
         <div v-if="settings.launchMode === 'windowed'" class="ls__row ls__row--stacked">
           <div class="ls__row-text">
-            <span class="ls__row-title">窗口大小</span>
-            <span class="ls__row-desc">游戏窗口的显示尺寸，可选预设或自定义</span>
+            <span class="ls__row-title">{{ t('ls.windowSize') }}</span>
+            <span class="ls__row-desc">{{ t('ls.windowSizeDesc') }}</span>
           </div>
           <Dropdown
             :options="sizeOptions"
             :model-value="sizeValue"
-            label="窗口大小"
+            :label="t('ls.windowSize')"
             @update:model-value="onSizePreset"
           />
           <div v-if="sizeValue === 'custom'" class="ls__sliders">
             <div class="ls__slider">
-              <span class="ls__slider-name">宽度</span>
+              <span class="ls__slider-name">{{ t('ls.width') }}</span>
               <Slider
                 v-model="customWidth"
                 :min="SIZE_RANGE.minWidth"
                 :max="SIZE_RANGE.maxWidth"
-                label="窗口宽度"
+                :label="t('ls.width')"
                 @change="commitSize"
               />
               <span class="ls__slider-value">{{ customWidth }} px</span>
             </div>
             <div class="ls__slider">
-              <span class="ls__slider-name">高度</span>
+              <span class="ls__slider-name">{{ t('ls.height') }}</span>
               <Slider
                 v-model="customHeight"
                 :min="SIZE_RANGE.minHeight"
                 :max="SIZE_RANGE.maxHeight"
-                label="窗口高度"
+                :label="t('ls.height')"
                 @change="commitSize"
               />
               <span class="ls__slider-value">{{ customHeight }} px</span>
@@ -177,34 +215,31 @@ function resetDir(): void {
 
         <div v-if="settings.versionId === null" class="ls__row ls__row--stacked">
           <div class="ls__row-text">
-            <span class="ls__row-title">游戏目录</span>
+            <span class="ls__row-title">{{ t('ls.gameDir') }}</span>
             <span class="ls__row-desc">
-              自定义启动时使用此目录，需包含 index.html
+              {{ t('ls.gameDirDesc') }}
               <span class="ls__chip" :class="status.found ? 'is-ok' : 'is-missing'">
                 <span class="ls__chip-dot" aria-hidden="true"></span>
-                {{ status.found ? '已就绪' : '未找到游戏' }}
+                {{ status.found ? t('ls.statusReady') : t('ls.statusMissing') }}
               </span>
             </span>
           </div>
           <div class="ls__dirbox">
             <span class="ls__dir" :title="status.dir ?? ''">
-              {{ status.dir ?? '默认使用启动器同目录的 game 文件夹' }}
+              {{ status.dir ?? t('ls.dirDefault') }}
             </span>
             <span class="ls__dir-actions">
-              <button class="ls__btn" type="button" @click="chooseDir">选择…</button>
+              <button class="ls__btn" type="button" @click="chooseDir">{{ t('ls.choose') }}</button>
               <button v-if="settings.gameDir" class="ls__btn ls__btn--ghost" type="button" @click="resetDir">
-                恢复默认
+                {{ t('ls.resetDir') }}
               </button>
             </span>
           </div>
         </div>
 
         <p class="ls__hint">
-          选择内置版本时优先使用数据文件夹
-          <code>launcher-data/versions/&lt;版本&gt;/</code>，未识别到时可在版本管理中指定自定义位置；
-          把 GDevelop 导出的网页版游戏（含 index.html 的文件夹）放入同目录
-          <code>game</code> 文件夹，即可作为默认游戏。游戏存档保存在数据文件夹的
-          <code>saves</code> 子目录中。
+          {{ t('ls.hint1') }}<code>launcher-data/versions/&lt;版本&gt;/</code>{{ t('ls.hint2')
+          }}<code>game</code>{{ t('ls.hint3') }}<code>saves</code>{{ t('ls.hint4') }}
         </p>
       </div>
     </div>
@@ -303,13 +338,6 @@ function resetDir(): void {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-}
-
-.ls__row-value {
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  color: var(--ink-2);
-  text-align: right;
 }
 
 .ls__seg {
@@ -431,7 +459,7 @@ function resetDir(): void {
 
 .ls__slider-name {
   flex: none;
-  width: 34px;
+  width: 52px;
   font-size: 12px;
   letter-spacing: 0.08em;
   color: var(--ink-3);

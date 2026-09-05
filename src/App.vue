@@ -15,6 +15,7 @@ import {
   type Settings,
 } from './lib/tauri';
 import type { PageId } from './components/SideNav.vue';
+import { setLocale } from './lib/i18n';
 import TitleBar from './components/TitleBar.vue';
 import SideNav from './components/SideNav.vue';
 import QuickLaunch from './components/QuickLaunch.vue';
@@ -25,6 +26,7 @@ import AboutPage from './components/AboutPage.vue';
 const settings = ref<Settings>({
   launchMode: 'fullscreen',
   windowedSize: null,
+  language: null,
   gameDir: null,
   versionId: BUILTIN_GAME_VERSIONS[0].id,
   customVersionDir: null,
@@ -59,6 +61,8 @@ onMounted(async () => {
   }
   status.value = loadedStatus;
   version.value = await getVersion().catch(() => '');
+  // 语言偏好随设置文件加载，立即应用到整个界面
+  setLocale(settings.value.language ?? 'zh-CN');
   // 页面可能在游戏运行中被刷新，挂载时向后端同步一次真实状态
   running.value = await isGameRunning();
   unlistenGameClosed = await onGameClosed(() => {

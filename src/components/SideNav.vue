@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '../lib/i18n';
+
 export type PageId = 'launch' | 'versions' | 'settings' | 'about';
 
 const props = defineProps<{
@@ -11,16 +13,16 @@ const emit = defineEmits<{
   update: [PageId];
 }>();
 
-const items: Array<{ id: PageId; label: string }> = [
-  { id: 'launch', label: '快速启动' },
-  { id: 'versions', label: '版本管理' },
-  { id: 'settings', label: '启动器设置' },
-  { id: 'about', label: '关于' },
+const items: Array<{ id: PageId; key: string }> = [
+  { id: 'launch', key: 'nav.launch' },
+  { id: 'versions', key: 'nav.versions' },
+  { id: 'settings', key: 'nav.settings' },
+  { id: 'about', key: 'nav.about' },
 ];
 </script>
 
 <template>
-  <nav class="sidenav" aria-label="启动器导航">
+  <nav class="sidenav" :aria-label="t('app.navLabel')">
     <button
       v-for="item in items"
       :key="item.id"
@@ -64,7 +66,7 @@ const items: Array<{ id: PageId; label: string }> = [
         <circle cx="10" cy="6.9" r="1.05" fill="currentColor" />
         <path d="M10 9.3v4.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
       </svg>
-      <span>{{ item.label }}</span>
+      <span>{{ t(item.key) }}</span>
     </button>
 
     <div class="sidenav__footer">

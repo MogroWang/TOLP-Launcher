@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { getDataDir } from '../lib/tauri';
+import { t } from '../lib/i18n';
 import tolpLogo from '../assets/tolp-logo.png';
 
 defineProps<{
@@ -18,8 +19,8 @@ onMounted(async () => {
 <template>
   <section class="ab">
     <header class="ab__head">
-      <h2>关于</h2>
-      <p>TOLP Launcher 与游戏光点之旅的信息。</p>
+      <h2>{{ t('ab.title') }}</h2>
+      <p>{{ t('ab.subtitle') }}</p>
     </header>
 
     <div class="ab__group">
@@ -36,25 +37,22 @@ onMounted(async () => {
     </div>
 
     <div class="ab__group">
-      <h3 class="ab__label">信息</h3>
+      <h3 class="ab__label">{{ t('ab.info') }}</h3>
       <div class="ab__card">
         <div class="ab__row">
-          <span class="ab__row-title">游戏</span>
-          <span class="ab__row-value">光点之旅 · Tour of Light Point</span>
+          <span class="ab__row-title">{{ t('ab.game') }}</span>
+          <span class="ab__row-value">Tour of Light Point</span>
         </div>
         <div class="ab__row">
-          <span class="ab__row-title">开发者</span>
+          <span class="ab__row-title">{{ t('ab.developer') }}</span>
           <span class="ab__row-value">MogroWang Studio</span>
         </div>
         <div class="ab__row ab__row--stacked">
-          <span class="ab__row-title">数据文件夹</span>
+          <span class="ab__row-title">{{ t('ab.dataFolder') }}</span>
           <span class="ab__dir" :title="dataDir">{{ dataDir || '—' }}</span>
         </div>
       </div>
-      <p class="ab__footnote">
-        为光点之旅打造的桌面启动器，基于 Tauri 构建 ·
-        便携版设计，设置与数据保存于启动器同目录，不写入系统注册表。
-      </p>
+      <p class="ab__footnote">{{ t('ab.footnote') }}</p>
     </div>
   </section>
 </template>

@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { BUILTIN_GAME_VERSIONS, listVersions } from '../lib/tauri';
 import type { GameStatus, Settings, VersionEntry, VersionScan } from '../lib/tauri';
+import { t } from '../lib/i18n';
 
 const props = defineProps<{
   settings: Settings;
@@ -16,6 +17,9 @@ const emit = defineEmits<{
 }>();
 
 const builtinVersion = BUILTIN_GAME_VERSIONS[0];
+
+/** 内置版本名：产品名随界面语言翻译，版本号保持原样 */
+const builtinLabel = computed(() => `${t('game.name')} ${builtinVersion.id} DEV`);
 
 const scan = ref<VersionScan | null>(null);
 
@@ -59,9 +63,9 @@ const builtinEntry = computed<VersionEntry | null>(() => {
 });
 
 const builtinSource = computed(() => {
-  if (builtinAuto.value?.found) return '数据文件夹 versions/';
-  if (scan.value?.custom?.found) return '自定义位置';
-  if (props.settings.versionId === builtinVersion.id && props.status.found) return '默认 game 文件夹';
+  if (builtinAuto.value?.found) return t('vm.srcDataFolder');
+  if (scan.value?.custom?.found) return t('vm.srcCustom');
+  if (props.settings.versionId === builtinVersion.id && props.status.found) return t('vm.srcDefaultGame');
   return null;
 });
 
@@ -75,7 +79,7 @@ async function chooseCustomLocation(): Promise<void> {
   const picked = await openDialog({
     directory: true,
     multiple: false,
-    title: '选择游戏所在文件夹（需包含 index.html）',
+    title: t('dialog.pickVersionDir'),
   });
   if (typeof picked === 'string') {
     emit('change', { ...props.settings, versionId: builtinVersion.id, customVersionDir: picked });
@@ -92,13 +96,13 @@ function clearCustomLocation(): void {
     <header class="vm__head">
       <div class="vm__head-row">
         <div>
-          <h2>版本管理</h2>
-          <p>自动识别数据文件夹中的游戏版本。</p>
+          <h2>{{ t('vm.title') }}</h2>
+          <p>{{ t('vm.subtitle') }}</p>
         </div>
-        <button class="vm__btn vm__btn--ghost" type="button" @click="refresh">重新扫描</button>
+        <button class="vm__btn vm__btn--ghost" type="button" @click="refresh">{{ t('vm.rescan') }}</button>
       </div>
       <p v-if="scan?.dataDir" class="vm__dir">
-        数据文件夹：<code :title="scan.versionsDir">{{ scan.dataDir }}</code>
+        {{ t('vm.dataDir') }}<code :title="scan.versionsDir">{{ scan.dataDir }}</code>
       </p>
     </header>
 
@@ -106,18 +110,18 @@ function clearCustomLocation(): void {
     <div class="vm__card" :class="{ 'is-current': settings.versionId === builtinVersion.id }">
       <span class="vm__orb" aria-hidden="true"></span>
       <span class="vm__info">
-        <span class="vm__name">{{ builtinVersion.label }}</span>
+        <span class="vm__name">{{ builtinLabel }}</span>
         <span class="vm__desc">
-          内部开发版本
+          {{ t('vm.devBuild') }}
           <template v-if="builtinEntry?.version"> · v{{ builtinEntry.version }}</template>
-          <template v-if="builtinSource"> · 来自{{ builtinSource }}</template>
+          <template v-if="builtinSource"> · {{ t('vm.from') }}{{ builtinSource }}</template>
         </span>
         <span v-if="builtinEntry" class="vm__path" :title="builtinEntry.dir">{{ builtinEntry.dir }}</span>
       </span>
       <span class="vm__badges">
-        <span v-if="builtinEntry?.official" class="vm__badge vm__badge--official">官方版本</span>
+        <span v-if="builtinEntry?.official" class="vm__badge vm__badge--official">{{ t('vm.official') }}</span>
         <span class="vm__badge" :class="builtinReady ? 'is-ok' : 'is-missing'">
-          {{ builtinReady ? '已就绪' : '未识别' }}
+          {{ builtinReady ? t('vm.ready') : t('vm.unrecognized') }}
         </span>
         <button
           v-if="settings.versionId !== builtinVersion.id"
@@ -125,18 +129,18 @@ function clearCustomLocation(): void {
           type="button"
           @click="emit('select', builtinVersion.id)"
         >
-          设为当前
+          {{ t('vm.setCurrent') }}
         </button>
-        <span v-else class="vm__badge vm__badge--current">当前版本</span>
+        <span v-else class="vm__badge vm__badge--current">{{ t('vm.current') }}</span>
       </span>
     </div>
 
     <div v-if="showBuiltinActions" class="vm__actions">
-      <button class="vm__btn" type="button" @click="chooseCustomLocation">自定义位置…</button>
+      <button class="vm__btn" type="button" @click="chooseCustomLocation">{{ t('vm.customLocation') }}</button>
       <button v-if="scan?.custom" class="vm__btn vm__btn--ghost" type="button" @click="clearCustomLocation">
-        清除自定义位置
+        {{ t('vm.clearCustom') }}
       </button>
-      <span v-if="scan?.custom && !scan.custom.found" class="vm__action-hint">所选目录中缺少 index.html</span>
+      <span v-if="scan?.custom && !scan.custom.found" class="vm__action-hint">{{ t('vm.missingIndexHint') }}</span>
     </div>
 
     <!-- 数据文件夹中识别到的其他版本 -->
@@ -151,14 +155,14 @@ function clearCustomLocation(): void {
         <span class="vm__name">{{ v.name ?? v.id }}</span>
         <span class="vm__desc">
           <template v-if="v.version">v{{ v.version }}</template>
-          <template v-else>未识别版本号</template>
-          <template v-if="v.official"> · 官方版本</template>
+          <template v-else>{{ t('vm.noVersionNum') }}</template>
+          <template v-if="v.official"> · {{ t('vm.official') }}</template>
         </span>
         <span class="vm__path" :title="v.dir">{{ v.dir }}</span>
       </span>
       <span class="vm__badges">
         <span class="vm__badge" :class="v.found ? 'is-ok' : 'is-missing'">
-          {{ v.found ? '已就绪' : '未就绪' }}
+          {{ v.found ? t('vm.ready') : t('vm.notReady') }}
         </span>
         <button
           v-if="settings.versionId !== v.id && v.found"
@@ -166,19 +170,19 @@ function clearCustomLocation(): void {
           type="button"
           @click="emit('select', v.id)"
         >
-          设为当前
+          {{ t('vm.setCurrent') }}
         </button>
-        <span v-else-if="settings.versionId === v.id" class="vm__badge vm__badge--current">当前版本</span>
+        <span v-else-if="settings.versionId === v.id" class="vm__badge vm__badge--current">{{ t('vm.current') }}</span>
       </span>
     </div>
 
     <p class="vm__note">
       {{
         scan === null
-          ? '正在扫描版本文件夹…'
+          ? t('vm.scanning')
           : scan.versions.length === 0 && !scan.custom
-            ? '版本文件夹中尚未识别到任何版本：把游戏放入数据文件夹的 versions/<版本名>/（需包含 index.html），或点击上方「自定义位置」指定游戏所在文件夹。'
-            : '版本会自动从数据文件夹的 versions/ 中识别；游戏存档保存在数据文件夹的 saves/ 中。更多历史版本与在线下载即将推出。'
+            ? t('vm.emptyTip')
+            : t('vm.autoTip')
       }}
     </p>
   </section>

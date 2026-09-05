@@ -24,6 +24,8 @@ pub struct Settings {
     pub launch_mode: LaunchMode,
     /// 窗口化启动时的游戏窗口大小；`None` 使用默认 1280×720。
     pub windowed_size: Option<WindowSize>,
+    /// 界面语言：`zh-CN`（默认）或 `en`。
+    pub language: Option<String>,
     pub game_dir: Option<String>,
     /// 选中的游戏版本：`Some(id)` 为版本启动（数据文件夹版本或内置版本），`None` 为自定义目录启动。
     pub version_id: Option<String>,

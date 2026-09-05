@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { BUILTIN_GAME_VERSIONS } from '../lib/tauri';
 import type { GameStatus, LaunchMode, Settings } from '../lib/tauri';
+import { t, translateMessage } from '../lib/i18n';
 import Dropdown from './Dropdown.vue';
 import SegmentedControl from './SegmentedControl.vue';
 import tolpLogo from '../assets/tolp-logo.png';
@@ -32,14 +33,14 @@ const versionLabel = computed(() => {
 });
 
 const versionOptions = computed(() => [
-  { value: 'builtin' as const, label: versionLabel.value, desc: '光点之旅 · 内部开发版本' },
-  { value: 'custom' as const, label: '自定义启动', desc: '使用指定游戏目录启动' },
+  { value: 'builtin' as const, label: versionLabel.value, desc: t('ql.builtinDesc') },
+  { value: 'custom' as const, label: t('ql.custom'), desc: t('ql.customDesc') },
 ]);
 
-const modeOptions: Array<{ value: LaunchMode; label: string }> = [
-  { value: 'fullscreen', label: '全屏启动' },
-  { value: 'windowed', label: '窗口化启动' },
-];
+const modeOptions = computed(() => [
+  { value: 'fullscreen' as const, label: t('mode.fullscreen') },
+  { value: 'windowed' as const, label: t('mode.windowed') },
+]);
 
 const versionValue = computed<VersionChoice>(() =>
   props.settings.versionId !== null ? 'builtin' : 'custom',
@@ -47,17 +48,17 @@ const versionValue = computed<VersionChoice>(() =>
 
 /** 运行中按钮变红为「取消运行」，点击关闭游戏窗口 */
 const playLabel = computed(() => {
-  if (props.launching) return '正在启动…';
-  if (props.running) return '取消运行';
-  return props.status.found ? '启动游戏' : '未找到游戏文件';
+  if (props.launching) return t('ql.launching');
+  if (props.running) return t('ql.cancel');
+  return props.status.found ? t('ql.launch') : t('ql.notFound');
 });
 
 const statusText = computed(() => {
-  if (props.running) return '游戏正在运行';
+  if (props.running) return t('ql.running');
   if (props.status.found) {
-    return props.status.version ? `游戏已就绪 · v${props.status.version}` : '游戏已就绪';
+    return props.status.version ? `${t('ql.ready')} · v${props.status.version}` : t('ql.ready');
   }
-  return props.status.reason ?? '尚未找到游戏文件夹';
+  return props.status.reason ? translateMessage(props.status.reason) : t('status.noFolder');
 });
 
 function setVersion(value: VersionChoice): void {
@@ -76,7 +77,7 @@ async function chooseDir(): Promise<void> {
   const picked = await openDialog({
     directory: true,
     multiple: false,
-    title: '选择游戏目录（需包含 index.html）',
+    title: t('dialog.pickGameDir'),
   });
   if (typeof picked === 'string') {
     emit('change', { ...props.settings, versionId: null, gameDir: picked });
@@ -113,7 +114,7 @@ async function chooseDir(): Promise<void> {
       <Dropdown
         :options="versionOptions"
         :model-value="versionValue"
-        label="启动版本"
+        :label="t('ql.versionLabel')"
         @update:model-value="setVersion"
       />
     </div>
@@ -122,7 +123,7 @@ async function chooseDir(): Promise<void> {
       <SegmentedControl
         :options="modeOptions"
         :model-value="settings.launchMode"
-        label="启动方式"
+        :label="t('app.launchMode')"
         @update:model-value="setMode"
       />
     </div>
@@ -135,7 +136,7 @@ async function chooseDir(): Promise<void> {
       ></span>
       <span>{{ statusText }}</span>
       <span v-if="status.found" class="ql__path" :title="status.dir ?? ''">{{ status.dir }}</span>
-      <button class="ql__pick" type="button" @click="chooseDir">选择文件夹</button>
+      <button class="ql__pick" type="button" @click="chooseDir">{{ t('ql.pickFolder') }}</button>
     </div>
 
     <p v-if="error" class="ql__error">{{ error }}</p>
@@ -143,6 +144,7 @@ async function chooseDir(): Promise<void> {
 </template>
 
 <style scoped>
+/* 快速启动背景：游戏 3.0+ 主页红黑云图，叠加深色渐变保证白色文字可读 */
 .ql {
   flex: 1;
   min-height: 0;
@@ -154,20 +156,9 @@ async function chooseDir(): Promise<void> {
   padding: 12px 32px 20px;
   position: relative;
   overflow-y: auto;
-}
-
-/* 光点的环境光，让黑色不再空洞 —— 与游戏菜单一致 */
-.ql::before {
-  content: '';
-  position: absolute;
-  width: min(66vmin, 620px);
-  height: min(66vmin, 620px);
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 62%);
-  top: 44%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.52)),
+    url('../assets/home-bg.png') center / cover no-repeat;
 }
 
 .ql__logo {
