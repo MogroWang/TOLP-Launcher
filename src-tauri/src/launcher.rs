@@ -18,7 +18,23 @@ pub struct LauncherState {
 }
 
 const GAME_WINDOW_LABEL: &str = "game";
-const WINDOWED_SIZE: (f64, f64) = (1280.0, 720.0);
+const DEFAULT_WINDOWED_SIZE: (f64, f64) = (1280.0, 720.0);
+/// 窗口大小的安全夹取范围，防止设置文件被手改成荒谬值
+const MIN_WINDOW_SIZE: (f64, f64) = (320.0, 240.0);
+const MAX_WINDOW_SIZE: (f64, f64) = (7680.0, 4320.0);
+
+/// 窗口化启动的窗口大小：取设置值并夹取到安全范围，未设置时用默认 1280×720。
+fn windowed_size(settings: &Settings) -> (f64, f64) {
+    settings
+        .windowed_size
+        .map(|s| {
+            (
+                (s.width as f64).clamp(MIN_WINDOW_SIZE.0, MAX_WINDOW_SIZE.0),
+                (s.height as f64).clamp(MIN_WINDOW_SIZE.1, MAX_WINDOW_SIZE.1),
+            )
+        })
+        .unwrap_or(DEFAULT_WINDOWED_SIZE)
+}
 
 /// 游戏窗口销毁后通知前端恢复「启动游戏」状态。
 pub const GAME_CLOSED_EVENT: &str = "game-closed";
@@ -310,7 +326,7 @@ pub struct LaunchResult {
 }
 
 /// 启动游戏：确保本地静态服务器指向游戏目录，
-/// 然后按启动设置以独立窗口打开游戏（全屏或 1280×720 窗口）。
+/// 然后按启动设置以独立窗口打开游戏（全屏或按设置大小的窗口）。
 ///
 /// 必须是 async command：窗口创建需要与主线程事件循环交互，
 /// 同步 command 会与其互锁导致应用挂起。
@@ -327,6 +343,7 @@ pub async fn launch_game(
     }
 
     let fullscreen = settings.launch_mode == LaunchMode::Fullscreen;
+    let (window_w, window_h) = windowed_size(&settings);
 
     let port = {
         let mut guard = state.lock().unwrap();
@@ -351,7 +368,7 @@ pub async fn launch_game(
     if let Some(existing) = app.get_webview_window(GAME_WINDOW_LABEL) {
         let _ = existing.set_fullscreen(fullscreen);
         if !fullscreen {
-            let _ = existing.set_size(tauri::LogicalSize::new(WINDOWED_SIZE.0, WINDOWED_SIZE.1));
+            let _ = existing.set_size(tauri::LogicalSize::new(window_w, window_h));
             let _ = existing.center();
         }
         let _ = existing.show();
@@ -372,7 +389,7 @@ pub async fn launch_game(
         .decorations(true)
         .fullscreen(fullscreen);
     if !fullscreen {
-        builder = builder.inner_size(WINDOWED_SIZE.0, WINDOWED_SIZE.1);
+        builder = builder.inner_size(window_w, window_h);
     }
     // 游戏存档（localStorage 等）写入数据文件夹，随启动器目录移动
     if let Ok(saves) = data_dir::saves_dir() {

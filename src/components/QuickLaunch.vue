@@ -87,7 +87,6 @@ async function chooseDir(): Promise<void> {
 <template>
   <section class="ql">
     <img class="ql__logo" :src="tolpLogo" alt="光点之旅" draggable="false" />
-    <p class="ql__sub">TOUR OF LIGHT POINT</p>
 
     <!-- 圆角药丸启动按钮：紫色光体质感延续游戏菜单的主球 -->
     <button
@@ -177,15 +176,6 @@ async function chooseDir(): Promise<void> {
   width: auto;
   user-select: none;
   pointer-events: none;
-}
-
-.ql__sub {
-  position: relative;
-  margin-top: -6px;
-  font-size: 10.5px;
-  letter-spacing: 0.46em;
-  text-indent: 0.46em;
-  color: var(--ink-4);
 }
 
 .ql__play {

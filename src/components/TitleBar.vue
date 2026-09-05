@@ -12,7 +12,7 @@ const win = inTauri ? getCurrentWindow() : null;
   <header class="titlebar" data-tauri-drag-region>
     <div class="titlebar__brand" data-tauri-drag-region>
       <span class="titlebar__dot" data-tauri-drag-region aria-hidden="true"></span>
-      <span class="titlebar__name" data-tauri-drag-region>TOLP LAUNCHER</span>
+      <span class="titlebar__name" data-tauri-drag-region>TOLP Launcher</span>
     </div>
     <div class="titlebar__actions" data-tauri-drag-region>
       <button
@@ -69,9 +69,9 @@ const win = inTauri ? getCurrentWindow() : null;
 }
 
 .titlebar__name {
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.04em;
   color: var(--ink-3);
 }
 

@@ -1,14 +1,14 @@
 <script setup lang="ts">
+import { computed, ref, watch } from 'vue';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
-import type { GameStatus, LaunchMode, Settings } from '../lib/tauri';
+import type { GameStatus, LaunchMode, Settings, WindowedSize } from '../lib/tauri';
 import SegmentedControl from './SegmentedControl.vue';
-import tolpLogo from '../assets/tolp-logo.png';
+import Dropdown from './Dropdown.vue';
+import Slider from './Slider.vue';
 
 const props = defineProps<{
   settings: Settings;
   status: GameStatus;
-  /** 启动器自身版本（tauri app.getVersion） */
-  version: string;
 }>();
 
 const emit = defineEmits<{
@@ -19,6 +19,80 @@ const modeOptions: Array<{ value: LaunchMode; label: string }> = [
   { value: 'fullscreen', label: '全屏启动' },
   { value: 'windowed', label: '窗口化启动' },
 ];
+
+/** 窗口大小预设 */
+const WINDOW_PRESETS: ReadonlyArray<{
+  value: string;
+  label: string;
+  desc?: string;
+  width: number;
+  height: number;
+}> = [
+  { value: '960x540', label: '960 × 540', desc: '小窗口', width: 960, height: 540 },
+  { value: '1280x720', label: '1280 × 720', desc: '推荐', width: 1280, height: 720 },
+  { value: '1600x900', label: '1600 × 900', width: 1600, height: 900 },
+  { value: '1920x1080', label: '1920 × 1080', desc: '大窗口', width: 1920, height: 1080 },
+];
+
+/** 自定义滑块的调节范围（后端另有安全夹取） */
+const SIZE_RANGE = { minWidth: 640, maxWidth: 3840, minHeight: 360, maxHeight: 2160 };
+
+const sizeOptions = [
+  ...WINDOW_PRESETS.map(({ value, label, desc }) => ({ value, label, desc })),
+  { value: 'custom', label: '自定义尺寸', desc: '拖动滑块调节宽高' },
+];
+
+/** 「自定义尺寸」是否被选中（选中后展开宽高滑块） */
+const customMode = ref(false);
+
+/** 当前生效的窗口大小；设置未保存过时为默认 1280×720 */
+function currentSize(): WindowedSize {
+  return props.settings.windowedSize ?? { width: 1280, height: 720 };
+}
+
+const sizeValue = computed<string>(() => {
+  if (customMode.value) return 'custom';
+  const { width, height } = currentSize();
+  const hit = WINDOW_PRESETS.find((p) => p.width === width && p.height === height);
+  return hit ? hit.value : 'custom';
+});
+
+/** 自定义滑块的本地值：拖动中实时变化，change（松手）时才写入设置 */
+const customWidth = ref(1280);
+const customHeight = ref(720);
+
+watch(
+  () => props.settings.windowedSize,
+  (size) => {
+    customWidth.value = size?.width ?? 1280;
+    customHeight.value = size?.height ?? 720;
+  },
+  { immediate: true },
+);
+
+function onSizePreset(value: string): void {
+  if (value === 'custom') {
+    customMode.value = true;
+    return;
+  }
+  customMode.value = false;
+  const preset = WINDOW_PRESETS.find((p) => p.value === value);
+  if (!preset) return;
+  const { width, height } = currentSize();
+  if (width === preset.width && height === preset.height) return;
+  emit('change', { ...props.settings, windowedSize: { width: preset.width, height: preset.height } });
+}
+
+/** 滑块一次调整结束：提交自定义窗口大小 */
+function commitSize(): void {
+  const size = {
+    width: Math.round(customWidth.value),
+    height: Math.round(customHeight.value),
+  };
+  const cur = props.settings.windowedSize;
+  if (cur && cur.width === size.width && cur.height === size.height) return;
+  emit('change', { ...props.settings, windowedSize: size });
+}
 
 function setMode(mode: LaunchMode): void {
   emit('change', { ...props.settings, launchMode: mode });
@@ -53,7 +127,7 @@ function resetDir(): void {
         <div class="ls__row">
           <div class="ls__row-text">
             <span class="ls__row-title">启动方式</span>
-            <span class="ls__row-desc">游戏窗口以全屏或 1280×720 窗口打开</span>
+            <span class="ls__row-desc">游戏窗口以全屏或设定尺寸的窗口打开</span>
           </div>
           <SegmentedControl
             class="ls__seg"
@@ -62,6 +136,43 @@ function resetDir(): void {
             label="启动方式"
             @update:model-value="setMode"
           />
+        </div>
+
+        <div v-if="settings.launchMode === 'windowed'" class="ls__row ls__row--stacked">
+          <div class="ls__row-text">
+            <span class="ls__row-title">窗口大小</span>
+            <span class="ls__row-desc">游戏窗口的显示尺寸，可选预设或自定义</span>
+          </div>
+          <Dropdown
+            :options="sizeOptions"
+            :model-value="sizeValue"
+            label="窗口大小"
+            @update:model-value="onSizePreset"
+          />
+          <div v-if="sizeValue === 'custom'" class="ls__sliders">
+            <div class="ls__slider">
+              <span class="ls__slider-name">宽度</span>
+              <Slider
+                v-model="customWidth"
+                :min="SIZE_RANGE.minWidth"
+                :max="SIZE_RANGE.maxWidth"
+                label="窗口宽度"
+                @change="commitSize"
+              />
+              <span class="ls__slider-value">{{ customWidth }} px</span>
+            </div>
+            <div class="ls__slider">
+              <span class="ls__slider-name">高度</span>
+              <Slider
+                v-model="customHeight"
+                :min="SIZE_RANGE.minHeight"
+                :max="SIZE_RANGE.maxHeight"
+                label="窗口高度"
+                @change="commitSize"
+              />
+              <span class="ls__slider-value">{{ customHeight }} px</span>
+            </div>
+          </div>
         </div>
 
         <div v-if="settings.versionId === null" class="ls__row ls__row--stacked">
@@ -96,29 +207,6 @@ function resetDir(): void {
           <code>saves</code> 子目录中。
         </p>
       </div>
-    </div>
-
-    <div class="ls__group">
-      <h3 class="ls__label">关于</h3>
-      <div class="ls__card">
-        <div class="ls__about">
-          <img class="ls__about-logo" :src="tolpLogo" alt="光点之旅" draggable="false" />
-          <div class="ls__about-text">
-            <strong>TOLP 启动器</strong>
-            <span>TOUR OF LIGHT POINT LAUNCHER</span>
-          </div>
-          <span class="ls__about-ver">{{ version ? `V${version}` : '—' }}</span>
-        </div>
-        <div class="ls__row">
-          <span class="ls__row-title">游戏</span>
-          <span class="ls__row-value">光点之旅 · Tour of Light Point</span>
-        </div>
-        <div class="ls__row">
-          <span class="ls__row-title">开发者</span>
-          <span class="ls__row-value">MOGROWANG STUDIO</span>
-        </div>
-      </div>
-      <p class="ls__footnote">为光点之旅打造的桌面启动器 · 设置保存于启动器同目录，不写入系统注册表。</p>
     </div>
   </section>
 </template>
@@ -324,53 +412,38 @@ function resetDir(): void {
   border-radius: 6px;
 }
 
-.ls__about {
+/* 自定义窗口大小的宽高滑块 */
+.ls__sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 14px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ls__slider {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px 0;
 }
 
-.ls__about-logo {
+.ls__slider-name {
   flex: none;
-  width: 52px;
-  height: auto;
-  user-select: none;
-  pointer-events: none;
-}
-
-.ls__about-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.ls__about-text strong {
-  font-size: 14.5px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  color: #fff;
-}
-
-.ls__about-text span {
-  font-size: 10px;
-  letter-spacing: 0.28em;
-  color: var(--ink-4);
-}
-
-.ls__about-ver {
-  flex: none;
-  font-size: 12.5px;
-  letter-spacing: 0.08em;
-  color: var(--ink-2);
-}
-
-.ls__footnote {
-  margin-top: 12px;
+  width: 34px;
   font-size: 12px;
-  line-height: 1.75;
-  color: rgba(255, 255, 255, 0.38);
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+
+.ls__slider-value {
+  flex: none;
+  width: 76px;
+  text-align: right;
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+  color: var(--accent-soft);
+  font-variant-numeric: tabular-nums;
 }
 </style>

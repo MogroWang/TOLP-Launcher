@@ -1,8 +1,10 @@
 <script setup lang="ts">
-export type PageId = 'launch' | 'versions' | 'settings';
+export type PageId = 'launch' | 'versions' | 'settings' | 'about';
 
 const props = defineProps<{
   page: PageId;
+  /** 启动器自身版本（tauri app.getVersion），显示在侧边栏底部 */
+  version: string;
 }>();
 
 const emit = defineEmits<{
@@ -13,6 +15,7 @@ const items: Array<{ id: PageId; label: string }> = [
   { id: 'launch', label: '快速启动' },
   { id: 'versions', label: '版本管理' },
   { id: 'settings', label: '启动器设置' },
+  { id: 'about', label: '关于' },
 ];
 </script>
 
@@ -40,7 +43,7 @@ const items: Array<{ id: PageId; label: string }> = [
         <path d="M16.9 7.2v5.3a4.4 4.4 0 0 1-4.4 4.4H7.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
       </svg>
       <!-- 启动器设置：滑块 -->
-      <svg v-else viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <svg v-else-if="item.id === 'settings'" viewBox="0 0 20 20" fill="none" aria-hidden="true">
         <g stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
           <path d="M3.4 5.6h7" />
           <path d="M14.9 5.6h1.7" />
@@ -55,8 +58,18 @@ const items: Array<{ id: PageId; label: string }> = [
           <circle cx="11.3" cy="14.4" r="1.9" />
         </g>
       </svg>
+      <!-- 关于：信息圆圈 -->
+      <svg v-else viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <circle cx="10" cy="10" r="6.9" stroke="currentColor" stroke-width="1.7" />
+        <circle cx="10" cy="6.9" r="1.05" fill="currentColor" />
+        <path d="M10 9.3v4.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+      </svg>
       <span>{{ item.label }}</span>
     </button>
+
+    <div class="sidenav__footer">
+      <span v-if="version" class="sidenav__version">V{{ version }}</span>
+    </div>
   </nav>
 </template>
 
@@ -111,5 +124,18 @@ const items: Array<{ id: PageId; label: string }> = [
   opacity: 1;
   color: var(--accent-soft);
   filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.55));
+}
+
+.sidenav__footer {
+  margin-top: auto;
+  padding: 12px 14px 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sidenav__version {
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  color: var(--ink-4);
+  user-select: none;
 }
 </style>

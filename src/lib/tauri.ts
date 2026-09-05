@@ -3,8 +3,16 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 export type LaunchMode = 'fullscreen' | 'windowed';
 
+/** 窗口化启动时的游戏窗口大小（像素） */
+export interface WindowedSize {
+  width: number;
+  height: number;
+}
+
 export interface Settings {
   launchMode: LaunchMode;
+  /** 窗口化启动时的游戏窗口大小；null 表示默认 1280×720 */
+  windowedSize: WindowedSize | null;
   gameDir: string | null;
   /** 选中的游戏版本；null 表示自定义目录启动 */
   versionId: string | null;
@@ -60,6 +68,7 @@ export function getSettings(): Promise<Settings> {
   if (!inTauri) {
     return Promise.resolve({
       launchMode: 'windowed',
+      windowedSize: null,
       gameDir: null,
       versionId: '4.0.002',
       customVersionDir: null,

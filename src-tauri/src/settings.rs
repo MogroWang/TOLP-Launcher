@@ -10,10 +10,20 @@ pub enum LaunchMode {
     Windowed,
 }
 
+/// 窗口化启动时的游戏窗口大小（像素）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowSize {
+    pub width: u32,
+    pub height: u32,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
     pub launch_mode: LaunchMode,
+    /// 窗口化启动时的游戏窗口大小；`None` 使用默认 1280×720。
+    pub windowed_size: Option<WindowSize>,
     pub game_dir: Option<String>,
     /// 选中的游戏版本：`Some(id)` 为版本启动（数据文件夹版本或内置版本），`None` 为自定义目录启动。
     pub version_id: Option<String>,

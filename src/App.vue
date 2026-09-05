@@ -20,9 +20,11 @@ import SideNav from './components/SideNav.vue';
 import QuickLaunch from './components/QuickLaunch.vue';
 import VersionManager from './components/VersionManager.vue';
 import LauncherSettings from './components/LauncherSettings.vue';
+import AboutPage from './components/AboutPage.vue';
 
 const settings = ref<Settings>({
   launchMode: 'fullscreen',
+  windowedSize: null,
   gameDir: null,
   versionId: BUILTIN_GAME_VERSIONS[0].id,
   customVersionDir: null,
@@ -108,7 +110,7 @@ async function onLaunch(): Promise<void> {
   <div class="app">
     <TitleBar />
     <div class="app__body">
-      <SideNav :page="page" @update="page = $event" />
+      <SideNav :page="page" :version="version" @update="page = $event" />
       <main class="app__main">
         <div class="app__page">
           <Transition name="page" mode="out-in">
@@ -128,21 +130,10 @@ async function onLaunch(): Promise<void> {
               :status="status"
               @select="(id) => applySettings({ ...settings, versionId: id })"
             />
-            <LauncherSettings
-              v-else
-              :settings="settings"
-              :status="status"
-              :version="version"
-              @change="applySettings"
-            />
+            <AboutPage v-else-if="page === 'about'" :version="version" />
+            <LauncherSettings v-else :settings="settings" :status="status" @change="applySettings" />
           </Transition>
         </div>
-        <footer class="app__footer">
-          <span>MOGROWANG STUDIO</span>
-          <span>
-            光点之旅 TOUR OF LIGHT POINT<template v-if="version"> · V{{ version }}</template>
-          </span>
-        </footer>
       </main>
     </div>
   </div>
@@ -174,9 +165,7 @@ async function onLaunch(): Promise<void> {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-/* 页面切换：短促淡入 + 轻微上浮，避免方向性滑动带来的跳跃感 */
+}/* 页面切换：短促淡入 + 轻微上浮，避免方向性滑动带来的跳跃感 */
 .page-enter-active {
   transition: opacity 0.18s ease-out, transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
 }
@@ -203,18 +192,5 @@ async function onLaunch(): Promise<void> {
   .page-enter-from {
     transform: none;
   }
-}
-
-.app__footer {
-  flex: none;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 22px;
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  color: var(--ink-4);
-  user-select: none;
 }
 </style>
